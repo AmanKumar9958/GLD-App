@@ -1,98 +1,337 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from "react";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+type Course = {
+  id: string;
+  title: string;
+  mentor: string;
+  lessons: number;
+  price: string;
+  image: string;
+};
+
+const categories = [
+  { id: "design", label: "Design", icon: "✨" },
+  { id: "programming", label: "Programming", icon: "💻" },
+  { id: "health", label: "Health & Fit.", icon: "💙" },
+  { id: "more", label: "More", icon: "✦" },
+];
+
+const popularCourses: Course[] = [
+  {
+    id: "course-1",
+    title: "Graphic Design Pro",
+    mentor: "Aadil Arif",
+    lessons: 32,
+    price: "$98.00",
+    image:
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "course-2",
+    title: "UX/UI Essentials",
+    mentor: "Buse Erhan",
+    lessons: 28,
+    price: "$75.00",
+    image:
+      "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=900&q=80",
+  },
+];
+
+const topRatedCourses: Course[] = [
+  {
+    id: "course-3",
+    title: "Motion Design Lab",
+    mentor: "Nina Callen",
+    lessons: 24,
+    price: "$83.00",
+    image:
+      "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "course-4",
+    title: "App Branding Kit",
+    mentor: "Zain Ali",
+    lessons: 19,
+    price: "$69.00",
+    image:
+      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80",
+  },
+];
+
+function CourseCard({ course }: { course: Course }) {
+  return (
+    <View style={styles.courseCard}>
+      <Image source={{ uri: course.image }} style={styles.courseImage} />
+      <View style={styles.courseMetaRow}>
+        <Text style={styles.courseTitle} numberOfLines={1}>
+          {course.title}
+        </Text>
+        <Text style={styles.coursePrice}>{course.price}</Text>
+      </View>
+      <Text style={styles.courseSub} numberOfLines={1}>
+        {course.mentor}
+      </Text>
+      <Text style={styles.courseSub}>{course.lessons} lessons</Text>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.profileRow}>
+            <Image
+              source={{
+                uri: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=200&q=80",
+              }}
+              style={styles.avatar}
             />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+            <View>
+              <Text style={styles.greeting}>Good Morning</Text>
+              <Text style={styles.name}>Shahib Hussain</Text>
+            </View>
+          </View>
+          <View style={styles.headerIcons}>
+            <Text style={styles.headerIcon}>🔎</Text>
+            <Text style={styles.headerIcon}>🔔</Text>
+          </View>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <View style={styles.banner}>
+          <View>
+            <Text style={styles.bannerKicker}>TODAY&apos;S SPECIAL</Text>
+            <Text style={styles.bannerText}>
+              Hurry! Today&apos;s your last chance
+            </Text>
+            <Text style={styles.bannerText}>for a discount.</Text>
+          </View>
+          <Text style={styles.bannerPercent}>75%</Text>
+        </View>
+
+        <View style={styles.categoryRow}>
+          {categories.map((item) => (
+            <View key={item.id} style={styles.categoryItem}>
+              <View style={styles.categoryIconWrap}>
+                <Text style={styles.categoryIcon}>{item.icon}</Text>
+              </View>
+              <Text style={styles.categoryLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Courses</Text>
+          <Text style={styles.sectionAction}>View all</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {popularCourses.map((course) => (
+            <CourseCard key={course.id} course={course} />
+          ))}
+        </ScrollView>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Top Rated Courses</Text>
+          <Text style={styles.sectionAction}>View all</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {topRatedCourses.map((course) => (
+            <CourseCard key={course.id} course={course} />
+          ))}
+        </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f4f7fb",
   },
-  stepContainer: {
-    gap: 8,
+  screen: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 24,
+  },
+  headerRow: {
+    marginTop: 8,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  greeting: {
+    fontSize: 12,
+    color: "#8b93a1",
+    marginBottom: 2,
+    fontWeight: "500",
+  },
+  name: {
+    fontSize: 14,
+    color: "#202631",
+    fontWeight: "700",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  headerIcon: {
+    fontSize: 17,
+  },
+  banner: {
+    marginHorizontal: 16,
+    borderRadius: 22,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#1569e7",
+  },
+  bannerKicker: {
+    color: "#d8ecff",
+    fontSize: 12,
+    fontWeight: "700",
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  bannerText: {
+    color: "#eaf4ff",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  bannerPercent: {
+    color: "#ffffff",
+    fontSize: 36,
+    fontWeight: "800",
+    letterSpacing: -1,
+    marginTop: 2,
+  },
+  categoryRow: {
+    marginTop: 18,
+    marginBottom: 16,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  categoryItem: {
+    width: "24%",
+    alignItems: "center",
+    gap: 7,
+  },
+  categoryIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#eaf0fb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryIcon: {
+    fontSize: 17,
+  },
+  categoryLabel: {
+    fontSize: 11,
+    color: "#596274",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    fontSize: 20,
+    color: "#1f2632",
+    fontWeight: "700",
+  },
+  sectionAction: {
+    fontSize: 13,
+    color: "#2f74e4",
+    fontWeight: "600",
+  },
+  horizontalList: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  courseCard: {
+    width: 170,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    padding: 8,
+    shadowColor: "#2f3b50",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  courseImage: {
+    width: "100%",
+    height: 92,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: "#dee5f1",
+  },
+  courseMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 3,
+  },
+  courseTitle: {
+    flex: 1,
+    fontSize: 13,
+    color: "#202734",
+    fontWeight: "700",
+  },
+  coursePrice: {
+    fontSize: 11,
+    color: "#ffffff",
+    fontWeight: "700",
+    backgroundColor: "#2f74e4",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  courseSub: {
+    fontSize: 10,
+    color: "#8a92a1",
+    marginBottom: 2,
+    fontWeight: "500",
   },
 });

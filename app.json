@@ -1,15 +1,16 @@
 {
   "expo": {
-    "name": "GLD-App",
-    "slug": "GLD-App",
-    "version": "1.0.0",
+    "name": "GLD Institute",
+    "slug": "GLD-Institute",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "gldapp",
+    "scheme": "gldinstitute",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.codewithaman.gldinstitute"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,6 +19,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "package": "com.codewithaman.gldinstitute",
+      "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -30,7 +33,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -38,11 +41,19 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-firebase/app"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "googleWebClientId": "444382898641-dcacsmeqtdn3o7j09tu3ei764l2ia7qu.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "a91fd320-9cba-450a-ba8c-6a26787bbd64"
+      }
     }
   }
 }
