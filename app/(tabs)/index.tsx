@@ -1,6 +1,18 @@
-import React from "react";
+import { getAuth } from "@react-native-firebase/auth";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import Spinner from "../../components/Spinner";
+import {
+  UserProfile,
+  getUserProfileWithCache,
+} from "../../services/userProfile";
 
 type Course = {
   id: string;
@@ -60,6 +72,9 @@ const topRatedCourses: Course[] = [
   },
 ];
 
+const defaultAvatar =
+  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80";
+
 function CourseCard({ course }: { course: Course }) {
   return (
     <View style={styles.courseCard}>
@@ -79,84 +94,166 @@ function CourseCard({ course }: { course: Course }) {
 }
 
 export default function HomeScreen() {
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const opacity = useSharedValue(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      opacity.value = withTiming(1, { duration: 280 });
+      return () => {
+        opacity.value = 0;
+      };
+    }, [opacity]),
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProfile = async () => {
+      if (!currentUser?.uid) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { cached, fresh } = await getUserProfileWithCache(
+          currentUser.uid,
+        );
+
+        if (!active) return;
+
+        if (cached) setProfile(cached);
+        if (fresh) setProfile(fresh);
+
+        if (!cached && !fresh) {
+          setProfile({
+            uid: currentUser.uid,
+            name: currentUser.displayName || "User",
+            email: currentUser.email || undefined,
+            photoURL: currentUser.photoURL || undefined,
+          });
+        }
+      } catch {
+        if (!active) return;
+        setProfile({
+          uid: currentUser.uid,
+          name: currentUser.displayName || "User",
+          email: currentUser.email || undefined,
+          photoURL: currentUser.photoURL || undefined,
+        });
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid]);
+
+  const displayName = useMemo(
+    () => profile?.name || currentUser?.displayName || "User",
+    [profile?.name, currentUser?.displayName],
+  );
+
+  const displayPhoto = useMemo(
+    () => profile?.photoURL || currentUser?.photoURL || defaultAvatar,
+    [profile?.photoURL, currentUser?.photoURL],
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.headerRow}>
-          <View style={styles.profileRow}>
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=200&q=80",
-              }}
-              style={styles.avatar}
-            />
-            <View>
-              <Text style={styles.greeting}>Good Morning</Text>
-              <Text style={styles.name}>Shahib Hussain</Text>
-            </View>
-          </View>
-          <View style={styles.headerIcons}>
-            <Text style={styles.headerIcon}>🔎</Text>
-            <Text style={styles.headerIcon}>🔔</Text>
-          </View>
-        </View>
-
-        <View style={styles.banner}>
-          <View>
-            <Text style={styles.bannerKicker}>TODAY&apos;S SPECIAL</Text>
-            <Text style={styles.bannerText}>
-              Hurry! Today&apos;s your last chance
-            </Text>
-            <Text style={styles.bannerText}>for a discount.</Text>
-          </View>
-          <Text style={styles.bannerPercent}>75%</Text>
-        </View>
-
-        <View style={styles.categoryRow}>
-          {categories.map((item) => (
-            <View key={item.id} style={styles.categoryItem}>
-              <View style={styles.categoryIconWrap}>
-                <Text style={styles.categoryIcon}>{item.icon}</Text>
+      <Animated.View style={[styles.flex, animatedStyle]}>
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerRow}>
+            <View style={styles.profileRow}>
+              {isLoading ? (
+                <View style={styles.avatarPlaceholder}>
+                  <Spinner size={22} color="#2f74e4" />
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: displayPhoto }}
+                  style={styles.avatar}
+                />
+              )}
+              <View>
+                <Text style={styles.greeting}>Good Morning</Text>
+                <Text style={styles.name}>{displayName}</Text>
               </View>
-              <Text style={styles.categoryLabel}>{item.label}</Text>
             </View>
-          ))}
-        </View>
+            <View style={styles.headerIcons}>
+              <Text style={styles.headerIcon}>🔎</Text>
+              <Text style={styles.headerIcon}>🔔</Text>
+            </View>
+          </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Popular Courses</Text>
-          <Text style={styles.sectionAction}>View all</Text>
-        </View>
+          <View style={styles.banner}>
+            <View>
+              <Text style={styles.bannerKicker}>TODAY&apos;S SPECIAL</Text>
+              <Text style={styles.bannerText}>
+                Hurry! Today&apos;s your last chance
+              </Text>
+              <Text style={styles.bannerText}>for a discount.</Text>
+            </View>
+            <Text style={styles.bannerPercent}>75%</Text>
+          </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {popularCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
+          <View style={styles.categoryRow}>
+            {categories.map((item) => (
+              <View key={item.id} style={styles.categoryItem}>
+                <View style={styles.categoryIconWrap}>
+                  <Text style={styles.categoryIcon}>{item.icon}</Text>
+                </View>
+                <Text style={styles.categoryLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Popular Courses</Text>
+            <Text style={styles.sectionAction}>View all</Text>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {popularCourses.map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </ScrollView>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Top Rated Courses</Text>
+            <Text style={styles.sectionAction}>View all</Text>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {topRatedCourses.map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </ScrollView>
         </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top Rated Courses</Text>
-          <Text style={styles.sectionAction}>View all</Text>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {topRatedCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
-        </ScrollView>
-      </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -165,6 +262,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#f4f7fb",
+  },
+  flex: {
+    flex: 1,
   },
   screen: {
     flex: 1,
@@ -189,6 +289,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
+  },
+  avatarPlaceholder: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#eaf0fb",
+    alignItems: "center",
+    justifyContent: "center",
   },
   greeting: {
     fontSize: 12,

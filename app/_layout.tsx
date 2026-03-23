@@ -5,11 +5,13 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" backgroundColor="#f6f8fc" />
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Ye aapki Login Screen hai (app/index.tsx) */}
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "slide_from_right",
+        }}
+      >
         <Stack.Screen name="index" />
-
-        {/* Ye aapka Tabs wala section hai */}
         <Stack.Screen name="(tabs)" />
       </Stack>
     </>
