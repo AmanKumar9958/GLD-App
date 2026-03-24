@@ -4,6 +4,7 @@ import {
     isSuccessResponse,
 } from "@react-native-google-signin/google-signin";
 import Constants from "expo-constants";
+import { saveUserProfile } from "./userProfile";
 
 let isGoogleConfigured = false;
 
@@ -58,7 +59,21 @@ export async function signInWithGoogle() {
   }
 
   const googleCredential = GoogleAuthProvider.credential(idToken);
-  return getAuth().signInWithCredential(googleCredential);
+  const result = await getAuth().signInWithCredential(googleCredential);
+
+  try {
+    const user = result.user;
+    await saveUserProfile({
+      uid: user.uid,
+      name: user.displayName || "User",
+      email: user.email || undefined,
+      photoURL: user.photoURL || undefined,
+    });
+  } catch {
+    // Profile save failure should not prevent sign-in.
+  }
+
+  return result;
 }
 
 export async function signOutCurrentUser() {
