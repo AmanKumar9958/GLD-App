@@ -1,21 +1,26 @@
 import { getAuth } from "@react-native-firebase/auth";
-import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import Spinner from "../../components/Spinner";
 import { signOutCurrentUser } from "../../services/auth";
 import {
-    UserProfile,
-    getUserProfileWithCache,
+  UserProfile,
+  getUserProfileWithCache,
 } from "../../services/userProfile";
 
 const defaultAvatar =
@@ -38,6 +43,19 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const opacity = useSharedValue(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      opacity.value = withTiming(1, { duration: 280 });
+      return () => {
+        opacity.value = 0;
+      };
+    }, [opacity]),
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   useEffect(() => {
     let active = true;
@@ -131,52 +149,54 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.profileHeader}>
-          <Image source={{ uri: displayPhoto }} style={styles.avatar} />
-          <Text style={styles.name}>{displayName}</Text>
-          <Text style={styles.email}>{displayEmail}</Text>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.loaderWrap}>
-            <ActivityIndicator size="small" color="#2f74e4" />
-          </View>
-        ) : null}
-
-        <View style={styles.listCard}>
-          {menuItems.map((item) => (
-            <Pressable key={item.id} style={styles.menuItem}>
-              <View style={styles.menuLeft}>
-                <View style={styles.menuIconWrap}>
-                  <Text style={styles.menuIcon}>{item.icon}</Text>
-                </View>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Pressable
-          style={[
-            styles.logoutButton,
-            isLoggingOut && styles.logoutButtonDisabled,
-          ]}
-          onPress={handleLogout}
-          disabled={isLoggingOut}
+      <Animated.View style={[styles.flex, animatedStyle]}>
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
-          {isLoggingOut ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Text style={styles.logoutText}>Logout</Text>
-          )}
-        </Pressable>
-      </ScrollView>
+          <View style={styles.profileHeader}>
+            <Image source={{ uri: displayPhoto }} style={styles.avatar} />
+            <Text style={styles.name}>{displayName}</Text>
+            <Text style={styles.email}>{displayEmail}</Text>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.loaderWrap}>
+              <Spinner size={32} color="#2f74e4" />
+            </View>
+          ) : null}
+
+          <View style={styles.listCard}>
+            {menuItems.map((item) => (
+              <Pressable key={item.id} style={styles.menuItem}>
+                <View style={styles.menuLeft}>
+                  <View style={styles.menuIconWrap}>
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                  </View>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={[
+              styles.logoutButton,
+              isLoggingOut && styles.logoutButtonDisabled,
+            ]}
+            onPress={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? (
+              <Spinner size={22} color="#ffffff" />
+            ) : (
+              <Text style={styles.logoutText}>Logout</Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -185,6 +205,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#f6f8fc",
+  },
+  flex: {
+    flex: 1,
   },
   screen: {
     flex: 1,
@@ -269,6 +292,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
+    minHeight: 50,
   },
   logoutButtonDisabled: {
     opacity: 0.7,

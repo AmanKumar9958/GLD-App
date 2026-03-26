@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Spinner from "../components/Spinner";
 import { signInWithGoogle } from "../services/auth";
 
 export default function Index() {
@@ -70,7 +70,7 @@ export default function Index() {
             <Text style={styles.googleIconText}>G</Text>
           </View>
           {isSigningIn ? (
-            <ActivityIndicator size="small" color="#202124" />
+            <Spinner size={22} color="#202124" />
           ) : (
             <Text style={styles.googleButtonText}>Sign in with Google</Text>
           )}

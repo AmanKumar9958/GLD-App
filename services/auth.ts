@@ -16,6 +16,7 @@ import {
     isSuccessResponse,
 } from "@react-native-google-signin/google-signin";
 import Constants from "expo-constants";
+import { saveUserProfile } from "./userProfile";
 
 let isGoogleConfigured = false;
 
@@ -92,9 +93,7 @@ export async function signInWithGoogle() {
   }
 
   const googleCredential = GoogleAuthProvider.credential(idToken);
-  const authResult = await signInWithCredential(getAuth(), googleCredential);
-  await persistSignedInUserProfile(authResult.user);
-  return authResult;
+  return getAuth().signInWithCredential(googleCredential);
 }
 
 export async function signOutCurrentUser() {

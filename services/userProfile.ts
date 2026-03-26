@@ -75,6 +75,28 @@ export async function cacheUserProfile(profile: UserProfile): Promise<void> {
   );
 }
 
+export async function saveUserProfile(profile: UserProfile): Promise<void> {
+  const docRef = firestore().collection("users").doc(profile.uid);
+  const doc = await docRef.get();
+
+  const data: Record<string, unknown> = {
+    name: profile.name,
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (profile.email) data.email = profile.email;
+  if (profile.photoURL) data.photoURL = profile.photoURL;
+
+  if (!doc.exists) {
+    data.createdAt = firestore.FieldValue.serverTimestamp();
+    await docRef.set(data);
+  } else {
+    await docRef.set(data, { merge: true });
+  }
+
+  await cacheUserProfile(profile);
+}
+
 export async function getUserProfileWithCache(uid: string): Promise<{
   cached: UserProfile | null;
   fresh: UserProfile | null;
