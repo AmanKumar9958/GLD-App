@@ -1,5 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import firestore from "@react-native-firebase/firestore";
+import {
+    collection,
+    getDocs,
+    getFirestore,
+    query,
+    where,
+} from "@react-native-firebase/firestore";
 
 export type CourseState = "ongoing" | "completed";
 
@@ -86,30 +92,44 @@ export async function getCachedCourses(uid: string): Promise<UserCourse[]> {
 }
 
 async function fetchFromUserSubcollection(uid: string): Promise<UserCourse[]> {
-  const snap = await firestore()
-    .collection("users")
-    .doc(uid)
-    .collection("courses")
-    .get();
+  const db = getFirestore();
+  const coursesRef = collection(db, "users", uid, "courses");
+  const snap = await getDocs(coursesRef);
+  const courses: UserCourse[] = [];
 
-  return snap.docs
-    .map((doc) =>
-      normalizeCourse(doc.id, doc.data() as Record<string, unknown>),
-    )
-    .filter((item): item is UserCourse => Boolean(item));
+  for (const courseDoc of snap.docs) {
+    const normalized = normalizeCourse(
+      courseDoc.id,
+      courseDoc.data() as Record<string, unknown>,
+    );
+
+    if (normalized) {
+      courses.push(normalized);
+    }
+  }
+
+  return courses;
 }
 
 async function fetchFromRootCollection(uid: string): Promise<UserCourse[]> {
-  const snap = await firestore()
-    .collection("courses")
-    .where("uid", "==", uid)
-    .get();
+  const db = getFirestore();
+  const coursesRef = collection(db, "courses");
+  const userCoursesQuery = query(coursesRef, where("uid", "==", uid));
+  const snap = await getDocs(userCoursesQuery);
+  const courses: UserCourse[] = [];
 
-  return snap.docs
-    .map((doc) =>
-      normalizeCourse(doc.id, doc.data() as Record<string, unknown>),
-    )
-    .filter((item): item is UserCourse => Boolean(item));
+  for (const courseDoc of snap.docs) {
+    const normalized = normalizeCourse(
+      courseDoc.id,
+      courseDoc.data() as Record<string, unknown>,
+    );
+
+    if (normalized) {
+      courses.push(normalized);
+    }
+  }
+
+  return courses;
 }
 
 export async function fetchUserCourses(uid: string): Promise<UserCourse[]> {

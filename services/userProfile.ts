@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import firestore from "@react-native-firebase/firestore";
+import {
+    collection,
+    doc,
+    getDoc,
+    getFirestore,
+} from "@react-native-firebase/firestore";
 
 export type UserProfile = {
   uid: string;
@@ -52,7 +57,9 @@ export async function getCachedUserProfile(
 export async function fetchUserProfile(
   uid: string,
 ): Promise<UserProfile | null> {
-  const userDoc = await firestore().collection("users").doc(uid).get();
+  const db = getFirestore();
+  const userRef = doc(collection(db, "users"), uid);
+  const userDoc = await getDoc(userRef);
 
   if (!userDoc.exists || !userDoc.data()) {
     return null;

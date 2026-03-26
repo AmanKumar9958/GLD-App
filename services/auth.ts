@@ -1,4 +1,16 @@
-import { getAuth, GoogleAuthProvider } from "@react-native-firebase/auth";
+import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithCredential,
+    signOut,
+} from "@react-native-firebase/auth";
+import {
+    collection,
+    doc,
+    getFirestore,
+    serverTimestamp,
+    setDoc,
+} from "@react-native-firebase/firestore";
 import {
     GoogleSignin,
     isSuccessResponse,
@@ -38,6 +50,28 @@ function configureGoogleSignIn(): void {
   isGoogleConfigured = true;
 }
 
+async function persistSignedInUserProfile(user: {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+}): Promise<void> {
+  const db = getFirestore();
+  const userRef = doc(collection(db, "users"), user.uid);
+
+  await setDoc(
+    userRef,
+    {
+      uid: user.uid,
+      name: user.displayName || "User",
+      email: user.email,
+      photoURL: user.photoURL,
+      lastLoginAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 export async function signInWithGoogle() {
   configureGoogleSignIn();
 
@@ -58,7 +92,9 @@ export async function signInWithGoogle() {
   }
 
   const googleCredential = GoogleAuthProvider.credential(idToken);
-  return getAuth().signInWithCredential(googleCredential);
+  const authResult = await signInWithCredential(getAuth(), googleCredential);
+  await persistSignedInUserProfile(authResult.user);
+  return authResult;
 }
 
 export async function signOutCurrentUser() {
@@ -68,5 +104,5 @@ export async function signOutCurrentUser() {
     // Ignore Google sign-out errors and still sign out from Firebase.
   }
 
-  return getAuth().signOut();
+  return signOut(getAuth());
 }

@@ -1,6 +1,8 @@
-import React from "react";
+import { getAuth } from "@react-native-firebase/auth";
+import React, { useEffect, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getUserProfileWithCache } from "../../services/userProfile";
 
 type Course = {
   id: string;
@@ -60,6 +62,33 @@ const topRatedCourses: Course[] = [
   },
 ];
 
+const defaultAvatar =
+  "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=200&q=80";
+
+function getIndiaGreeting(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date()),
+  );
+
+  if (hour >= 5 && hour < 12) {
+    return "Good Morning";
+  }
+
+  if (hour >= 12 && hour < 17) {
+    return "Good Afternoon";
+  }
+
+  if (hour >= 17 && hour < 22) {
+    return "Good Evening";
+  }
+
+  return "Good Night";
+}
+
 function CourseCard({ course }: { course: Course }) {
   return (
     <View style={styles.courseCard}>
@@ -79,6 +108,68 @@ function CourseCard({ course }: { course: Course }) {
 }
 
 export default function HomeScreen() {
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+  const [displayName, setDisplayName] = useState("User");
+  const [displayPhoto, setDisplayPhoto] = useState(defaultAvatar);
+  const [greeting, setGreeting] = useState(getIndiaGreeting());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGreeting(getIndiaGreeting());
+    }, 60 * 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      if (!currentUser?.uid) {
+        return;
+      }
+
+      const fallbackName = currentUser.displayName || "User";
+      const fallbackPhoto = currentUser.photoURL || defaultAvatar;
+
+      if (mounted) {
+        setDisplayName(fallbackName);
+        setDisplayPhoto(fallbackPhoto);
+      }
+
+      try {
+        const { cached, fresh } = await getUserProfileWithCache(
+          currentUser.uid,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        const profile = fresh || cached;
+
+        if (profile?.name) {
+          setDisplayName(profile.name);
+        }
+
+        if (profile?.photoURL) {
+          setDisplayPhoto(profile.photoURL);
+        }
+      } catch {
+        // Keep auth fallback values if fetching profile fails.
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser?.uid, currentUser?.displayName, currentUser?.photoURL]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <ScrollView
@@ -88,15 +179,10 @@ export default function HomeScreen() {
       >
         <View style={styles.headerRow}>
           <View style={styles.profileRow}>
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=200&q=80",
-              }}
-              style={styles.avatar}
-            />
+            <Image source={{ uri: displayPhoto }} style={styles.avatar} />
             <View>
-              <Text style={styles.greeting}>Good Morning</Text>
-              <Text style={styles.name}>Shahib Hussain</Text>
+              <Text style={styles.greeting}>{greeting}</Text>
+              <Text style={styles.name}>{displayName}</Text>
             </View>
           </View>
           <View style={styles.headerIcons}>
