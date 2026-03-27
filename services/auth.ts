@@ -98,10 +98,11 @@ export async function signInWithGoogle() {
 
 export async function signOutCurrentUser() {
   try {
+    configureGoogleSignIn();
     await GoogleSignin.signOut();
   } catch {
     // Ignore Google sign-out errors and still sign out from Firebase.
   }
 
-  return signOut(getAuth());
+  return getAuth().signOut();
 }

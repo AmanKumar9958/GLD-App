@@ -1,4 +1,11 @@
-import { Tabs } from 'expo-router';
+import {
+    FirebaseAuthTypes,
+    getAuth,
+    onAuthStateChanged,
+} from "@react-native-firebase/auth";
+import { Redirect, Tabs } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 export default function TabsLayout() {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
@@ -24,30 +31,40 @@ export default function TabsLayout() {
   }
 
   if (!user) {
-    return <Redirect href="/" />;
+    return <Redirect href="/index" />;
   }
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: '#007BFF', headerShown: false }}>
-      <Tabs.Screen 
-        name="index" 
-        options={{ 
-          title: 'Home',
+    <Tabs
+      screenOptions={{ tabBarActiveTintColor: "#007BFF", headerShown: false }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
           // tabBarIcon: () => <Icon name="home" /> (Icon baad mein add kar lenge)
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="courses" 
-        options={{ 
-          title: 'My Courses' 
-        }} 
+      <Tabs.Screen
+        name="courses"
+        options={{
+          title: "My Courses",
+        }}
       />
-      <Tabs.Screen 
-        name="profile" 
-        options={{ 
-          title: 'Profile' 
-        }} 
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+        }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

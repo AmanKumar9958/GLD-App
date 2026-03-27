@@ -139,11 +139,10 @@ export default function ProfileScreen() {
       await signOutCurrentUser();
       router.replace("/");
     } catch (error) {
+      setIsLoggingOut(false);
       const message =
         error instanceof Error ? error.message : "Unable to logout right now.";
       Alert.alert("Logout failed", message);
-    } finally {
-      setIsLoggingOut(false);
     }
   };
 
