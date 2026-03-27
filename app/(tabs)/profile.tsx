@@ -137,9 +137,7 @@ export default function ProfileScreen() {
     try {
       setIsLoggingOut(true);
       await signOutCurrentUser();
-      setTimeout(() => {
-        router.replace("/");
-      }, 100);
+      // Do nothing here — _layout.tsx onAuthStateChanged handles the redirect
     } catch (error) {
       setIsLoggingOut(false);
       const message =
