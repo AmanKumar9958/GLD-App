@@ -31,7 +31,7 @@ export default function TabsLayout() {
   }
 
   if (!user) {
-    return <Redirect href="/index" />;
+    return <Redirect href="/" />;
   }
 
   return (

@@ -137,7 +137,9 @@ export default function ProfileScreen() {
     try {
       setIsLoggingOut(true);
       await signOutCurrentUser();
-      router.replace("/");
+      setTimeout(() => {
+        router.replace("/");
+      }, 100);
     } catch (error) {
       setIsLoggingOut(false);
       const message =
