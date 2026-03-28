@@ -44,14 +44,14 @@ export default function TabsLayout() {
   if (!isAuthResolved || !user) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#2f74e4" />
+        <ActivityIndicator size="small" color="#1E3989" />
       </View>
     );
   }
 
   return (
     <Tabs
-      screenOptions={{ tabBarActiveTintColor: "#007BFF", headerShown: false }}
+      screenOptions={{ tabBarActiveTintColor: "#1E3989", headerShown: false }}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="courses" options={{ title: "My Courses" }} />

@@ -12,7 +12,7 @@ type Props = {
   color?: string;
 };
 
-export default function Spinner({ size = 40, color = "#2f74e4" }: Props) {
+export default function Spinner({ size = 40, color = "#1E3989" }: Props) {
   const rotation = useSharedValue(0);
 
   useEffect(() => {

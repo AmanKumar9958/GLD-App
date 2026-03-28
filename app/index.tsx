@@ -70,7 +70,7 @@ export default function Index() {
             <Text style={styles.googleIconText}>G</Text>
           </View>
           {isSigningIn ? (
-            <Spinner size={22} color="#202124" />
+            <Spinner size={22} color="#1E3989" />
           ) : (
             <Text style={styles.googleButtonText}>Sign in with Google</Text>
           )}
@@ -83,7 +83,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f4f4f6",
+    backgroundColor: "#F0F4FB",
   },
   container: {
     flex: 1,
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: "#ffffff",
     overflow: "hidden",
-    shadowColor: "#1a1a1a",
+    shadowColor: "#1E3989",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
@@ -113,12 +113,12 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#8a8a8a",
+    color: "#8090C0",
   },
   heroImage: {
     width: "100%",
     height: 320,
-    backgroundColor: "#ececef",
+    backgroundColor: "#D5E2F5",
   },
   content: {
     paddingHorizontal: 18,
@@ -129,16 +129,16 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 38,
     fontWeight: "800",
-    color: "#222222",
+    color: "#1E3989",
     marginBottom: 10,
   },
   highlight: {
-    color: "#2b6cff",
+    color: "#1E3989",
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#9b9b9b",
+    color: "#8090C0",
     fontWeight: "500",
   },
   googleButton: {
@@ -152,24 +152,24 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: "#e4e5ea",
+    borderColor: "#D5E2F5",
   },
   googleIconWrap: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#f1f3f4",
+    backgroundColor: "#F0F4FB",
     alignItems: "center",
     justifyContent: "center",
   },
   googleIconText: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#1a73e8",
+    color: "#1E3989",
   },
   googleButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#202124",
+    color: "#1E3989",
   },
 });

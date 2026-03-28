@@ -140,7 +140,7 @@ export default function CoursesScreen() {
       >
         {isLoading ? (
           <View style={styles.loaderWrap}>
-            <ActivityIndicator size="small" color="#2f74e4" />
+            <ActivityIndicator size="small" color="#1E3989" />
           </View>
         ) : null}
 
@@ -198,7 +198,7 @@ export default function CoursesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f4f7fc",
+    backgroundColor: "#F0F4FB",
   },
   headerRow: {
     flexDirection: "row",
@@ -210,12 +210,12 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 20,
-    color: "#273043",
+    color: "#1E3989",
     width: 24,
   },
   pageTitle: {
     fontSize: 20,
-    color: "#273043",
+    color: "#1E3989",
     fontWeight: "700",
   },
   rightPlaceholder: {
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
     borderBottomWidth: 1,
-    borderBottomColor: "#dce3ee",
+    borderBottomColor: "#D5E2F5",
     marginBottom: 6,
   },
   filterItem: {
@@ -235,12 +235,12 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 13,
-    color: "#7f8a9e",
+    color: "#8090C0",
     fontWeight: "600",
     paddingBottom: 10,
   },
   filterLabelActive: {
-    color: "#2f74e4",
+    color: "#1E3989",
   },
   filterUnderline: {
     width: "100%",
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   filterUnderlineActive: {
-    backgroundColor: "#2f74e4",
+    backgroundColor: "#1E3989",
   },
   listContainer: {
     flex: 1,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     borderWidth: 1,
-    borderColor: "#e9eef7",
+    borderColor: "#D5E2F5",
     backgroundColor: "#ffffff",
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -274,13 +274,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 15,
-    color: "#273043",
+    color: "#1E3989",
     fontWeight: "700",
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: "#7f8a9e",
+    color: "#8090C0",
     textAlign: "center",
     fontWeight: "500",
   },
@@ -291,13 +291,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 8,
     borderWidth: 1,
-    borderColor: "#ebf0f7",
+    borderColor: "#D5E2F5",
   },
   courseImage: {
     width: 78,
     height: 62,
     borderRadius: 10,
-    backgroundColor: "#dde5f2",
+    backgroundColor: "#D5E2F5",
   },
   courseBody: {
     flex: 1,
@@ -312,24 +312,24 @@ const styles = StyleSheet.create({
   courseTitle: {
     flex: 1,
     fontSize: 15,
-    color: "#1e2735",
+    color: "#1E3989",
     fontWeight: "700",
   },
   progressPct: {
     fontSize: 11,
-    color: "#6d778a",
+    color: "#8090C0",
     fontWeight: "700",
   },
   courseSubtitle: {
     fontSize: 11,
-    color: "#8d96a8",
+    color: "#8090C0",
     marginTop: 2,
     marginBottom: 4,
     fontWeight: "500",
   },
   statusText: {
     fontSize: 11,
-    color: "#8d96a8",
+    color: "#8090C0",
     marginBottom: 5,
     fontWeight: "600",
   },
@@ -337,12 +337,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 5,
     borderRadius: 999,
-    backgroundColor: "#dbe4f1",
+    backgroundColor: "#D5E2F5",
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#2f74e4",
+    backgroundColor: "#1E3989",
   },
 });
