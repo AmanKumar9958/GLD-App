@@ -1,22 +1,21 @@
 import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithCredential,
-    signOut,
+  getAuth,
+  GoogleAuthProvider,
+  signInWithCredential,
+  signOut,
 } from "@react-native-firebase/auth";
 import {
-    collection,
-    doc,
-    getFirestore,
-    serverTimestamp,
-    setDoc,
+  collection,
+  doc,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
 } from "@react-native-firebase/firestore";
 import {
-    GoogleSignin,
-    isSuccessResponse,
+  GoogleSignin,
+  isSuccessResponse,
 } from "@react-native-google-signin/google-signin";
 import Constants from "expo-constants";
-import { saveUserProfile } from "./userProfile";
 
 let isGoogleConfigured = false;
 
@@ -92,8 +91,9 @@ export async function signInWithGoogle() {
     throw new Error("Google sign-in did not return an ID token.");
   }
 
+  const auth = getAuth();
   const googleCredential = GoogleAuthProvider.credential(idToken);
-  return getAuth().signInWithCredential(googleCredential);
+  return signInWithCredential(auth, googleCredential);
 }
 
 export async function signOutCurrentUser() {
@@ -104,5 +104,6 @@ export async function signOutCurrentUser() {
     // Ignore Google sign-out errors and still sign out from Firebase.
   }
 
-  return getAuth().signOut();
+  const auth = getAuth();
+  return signOut(auth);
 }

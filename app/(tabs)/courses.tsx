@@ -2,18 +2,18 @@ import { getAuth } from "@react-native-firebase/auth";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  getUserCoursesWithCache,
-  UserCourse,
+    getUserCoursesWithCache,
+    UserCourse,
 } from "../../services/userCourses";
 
 type FilterKey = "all" | "ongoing" | "completed";
@@ -205,13 +205,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 20,
     paddingBottom: 14,
   },
   backIcon: {
     fontSize: 20,
     color: "#273043",
-    width: 24,
+    width: 24
   },
   pageTitle: {
     fontSize: 20,
