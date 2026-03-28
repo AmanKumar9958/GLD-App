@@ -284,7 +284,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f4f7fb",
+    backgroundColor: "#F0F4FB",
   },
   flex: {
     flex: 1,
@@ -317,19 +317,19 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#eaf0fb",
+    backgroundColor: "#E4EDF9",
     alignItems: "center",
     justifyContent: "center",
   },
   greeting: {
     fontSize: 12,
-    color: "#8b93a1",
+    color: "#8090C0",
     marginBottom: 2,
     fontWeight: "500",
   },
   name: {
     fontSize: 14,
-    color: "#202631",
+    color: "#1E3989",
     fontWeight: "700",
   },
   headerIcons: {
@@ -346,16 +346,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#1569e7",
+    backgroundColor: "#1E3989",
   },
   bannerKicker: {
-    color: "#d8ecff",
+    color: "#CCDEFF",
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 8,
   },
   bannerText: {
-    color: "#eaf4ff",
+    color: "#EEF4FF",
     fontSize: 12,
     lineHeight: 18,
     fontWeight: "500",
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: "#eaf0fb",
+    backgroundColor: "#E4EDF9",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   categoryLabel: {
     fontSize: 11,
-    color: "#596274",
+    color: "#8090C0",
     fontWeight: "600",
     textAlign: "center",
   },
@@ -406,12 +406,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    color: "#1f2632",
+    color: "#1E3989",
     fontWeight: "700",
   },
   sectionAction: {
     fontSize: 13,
-    color: "#2f74e4",
+    color: "#1E3989",
     fontWeight: "600",
   },
   horizontalList: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#ffffff",
     padding: 8,
-    shadowColor: "#2f3b50",
+    shadowColor: "#1E3989",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     height: 92,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: "#dee5f1",
+    backgroundColor: "#D5E2F5",
   },
   courseMetaRow: {
     flexDirection: "row",
@@ -447,21 +447,21 @@ const styles = StyleSheet.create({
   courseTitle: {
     flex: 1,
     fontSize: 13,
-    color: "#202734",
+    color: "#1E3989",
     fontWeight: "700",
   },
   coursePrice: {
     fontSize: 11,
     color: "#ffffff",
     fontWeight: "700",
-    backgroundColor: "#2f74e4",
+    backgroundColor: "#1E3989",
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
   courseSub: {
     fontSize: 10,
-    color: "#8a92a1",
+    color: "#8090C0",
     marginBottom: 2,
     fontWeight: "500",
   },

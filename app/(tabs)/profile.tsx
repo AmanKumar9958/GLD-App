@@ -162,7 +162,7 @@ export default function ProfileScreen() {
 
           {isLoading ? (
             <View style={styles.loaderWrap}>
-              <Spinner size={32} color="#2f74e4" />
+              <Spinner size={32} color="#1E3989" />
             </View>
           ) : null}
 
@@ -203,8 +203,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f6f8fc",
-    paddingTop: 20
+    backgroundColor: "#F0F4FB",
   },
   flex: {
     flex: 1,
@@ -226,17 +225,17 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 42,
     marginBottom: 10,
-    backgroundColor: "#e0e6f2",
+    backgroundColor: "#D5E2F5",
   },
   name: {
     fontSize: 19,
-    color: "#1f2632",
+    color: "#1E3989",
     fontWeight: "700",
     marginBottom: 4,
   },
   email: {
     fontSize: 13,
-    color: "#8690a3",
+    color: "#8090C0",
     fontWeight: "500",
   },
   loaderWrap: {
@@ -248,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#edf1f8",
+    borderColor: "#D5E2F5",
   },
   menuItem: {
     flexDirection: "row",
@@ -257,7 +256,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f4f9",
+    borderBottomColor: "#E4EDF9",
   },
   menuLeft: {
     flexDirection: "row",
@@ -270,25 +269,25 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e9f1ff",
+    backgroundColor: "#E4EDF9",
   },
   menuIcon: {
     fontSize: 12,
   },
   menuLabel: {
     fontSize: 15,
-    color: "#273043",
+    color: "#1E3989",
     fontWeight: "600",
   },
   chevron: {
     fontSize: 22,
-    color: "#a8b1c2",
+    color: "#8090C0",
     marginTop: -2,
   },
   logoutButton: {
     marginTop: 18,
     borderRadius: 12,
-    backgroundColor: "#2f74e4",
+    backgroundColor: "#EF4444",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
