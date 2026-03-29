@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -98,7 +99,7 @@ export default function CoursesScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerRow}>
         <Pressable onPress={handleBack} hitSlop={8}>
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={20} color="#1E3989" />
         </Pressable>
         <Text style={styles.pageTitle}>My Courses</Text>
         <View style={styles.rightPlaceholder} />
@@ -207,11 +208,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 14,
-  },
-  backIcon: {
-    fontSize: 20,
-    color: "#1E3989",
-    width: 24,
   },
   pageTitle: {
     fontSize: 20,

@@ -1,46 +1,52 @@
-import { useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    Alert,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Spinner from "../../components/Spinner";
 import { useAuth } from "../../context/AuthContext";
 import { signOutCurrentUser } from "../../services/auth";
 import {
-    UserProfile,
-    getUserProfileWithCache,
+  UserProfile,
+  getUserProfileWithCache,
 } from "../../services/userProfile";
 
 const defaultAvatar =
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80";
 
-const menuItems = [
-  { id: "edit", label: "Edit profile", icon: "👤" },
-  { id: "fav", label: "My Favorite", icon: "💙" },
-  { id: "pay", label: "Payment method", icon: "💳" },
-  { id: "settings", label: "Settings", icon: "⚙️" },
-  { id: "security", label: "Security", icon: "🛡️" },
-  { id: "privacy", label: "Privacy policy", icon: "📄" },
+type ProfileMenuItem = {
+  id: string;
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+};
+
+const menuItems: ProfileMenuItem[] = [
+  { id: "fav", label: "My Favorite", icon: "heart-outline" },
+  { id: "my-courses", label: "My Courses", icon: "book-outline" },
 ];
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { user: currentUser } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
   const opacity = useSharedValue(0);
 
@@ -131,9 +137,10 @@ export default function ProfileScreen() {
     return profile?.photoURL || currentUser?.photoURL || defaultAvatar;
   }, [profile?.photoURL, currentUser?.photoURL]);
 
-  const handleLogout = async () => {
+  const confirmLogout = async () => {
     try {
       setIsLoggingOut(true);
+      setIsLogoutModalVisible(false);
       await signOutCurrentUser();
       // Do nothing here — _layout.tsx onAuthStateChanged handles the redirect
     } catch (error) {
@@ -141,6 +148,16 @@ export default function ProfileScreen() {
       const message =
         error instanceof Error ? error.message : "Unable to logout right now.";
       Alert.alert("Logout failed", message);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLogoutModalVisible(true);
+  };
+
+  const handleMenuPress = (itemId: ProfileMenuItem["id"]) => {
+    if (itemId === "my-courses") {
+      router.push("/(tabs)/courses");
     }
   };
 
@@ -166,14 +183,18 @@ export default function ProfileScreen() {
 
           <View style={styles.listCard}>
             {menuItems.map((item) => (
-              <Pressable key={item.id} style={styles.menuItem}>
+              <Pressable
+                key={item.id}
+                style={styles.menuItem}
+                onPress={() => handleMenuPress(item.id)}
+              >
                 <View style={styles.menuLeft}>
                   <View style={styles.menuIconWrap}>
-                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                    <Ionicons name={item.icon} size={16} color="#1E3989" />
                   </View>
                   <Text style={styles.menuLabel}>{item.label}</Text>
                 </View>
-                <Text style={styles.chevron}>›</Text>
+                <Ionicons name="chevron-forward" size={20} color="#8090C0" />
               </Pressable>
             ))}
           </View>
@@ -193,6 +214,39 @@ export default function ProfileScreen() {
             )}
           </Pressable>
         </ScrollView>
+
+        <Modal
+          visible={isLogoutModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsLogoutModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.logoutModalCard}>
+              <View style={styles.logoutIconWrap}>
+                <Ionicons name="log-out-outline" size={24} color="#1E3989" />
+              </View>
+
+              <Text style={styles.modalTitle}>Logout</Text>
+              <Text style={styles.modalSubtitle}>
+                Are you sure you want to logout from your account?
+              </Text>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() => setIsLogoutModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+
+                <Pressable style={styles.confirmButton} onPress={confirmLogout}>
+                  <Text style={styles.confirmButtonText}>Yes, Logout</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Animated.View>
     </SafeAreaView>
   );
@@ -214,7 +268,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   profileHeader: {
-    marginTop: 8,
+    marginTop: 12,
     alignItems: "center",
     marginBottom: 18,
   },
@@ -269,18 +323,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#E4EDF9",
   },
-  menuIcon: {
-    fontSize: 12,
-  },
   menuLabel: {
     fontSize: 15,
     color: "#1E3989",
     fontWeight: "600",
-  },
-  chevron: {
-    fontSize: 22,
-    color: "#8090C0",
-    marginTop: -2,
   },
   logoutButton: {
     marginTop: 18,
@@ -297,6 +343,78 @@ const styles = StyleSheet.create({
   logoutText: {
     color: "#ffffff",
     fontSize: 16,
+    fontWeight: "700",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(18, 25, 48, 0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  logoutModalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E4EDF9",
+  },
+  logoutIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEE2E2",
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#1E3989",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#8090C0",
+    fontWeight: "500",
+  },
+  modalActions: {
+    marginTop: 16,
+    flexDirection: "row",
+    gap: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#D5E2F5",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFF",
+  },
+  cancelButtonText: {
+    color: "#1E3989",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  confirmButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EF4444",
+  },
+  confirmButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
     fontWeight: "700",
   },
 });

@@ -4,6 +4,8 @@ import {
     doc,
     getDoc,
     getFirestore,
+    serverTimestamp,
+    setDoc,
 } from "@react-native-firebase/firestore";
 
 export type UserProfile = {
@@ -76,22 +78,23 @@ export async function cacheUserProfile(profile: UserProfile): Promise<void> {
 }
 
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
-  const docRef = firestore().collection("users").doc(profile.uid);
-  const doc = await docRef.get();
+  const db = getFirestore();
+  const userRef = doc(collection(db, "users"), profile.uid);
+  const existingDoc = await getDoc(userRef);
 
   const data: Record<string, unknown> = {
     name: profile.name,
-    updatedAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: serverTimestamp(),
   };
 
   if (profile.email) data.email = profile.email;
   if (profile.photoURL) data.photoURL = profile.photoURL;
 
-  if (!doc.exists) {
-    data.createdAt = firestore.FieldValue.serverTimestamp();
-    await docRef.set(data);
+  if (!existingDoc.exists()) {
+    data.createdAt = serverTimestamp();
+    await setDoc(userRef, data);
   } else {
-    await docRef.set(data, { merge: true });
+    await setDoc(userRef, data, { merge: true });
   }
 
   await cacheUserProfile(profile);

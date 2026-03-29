@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "../../context/AuthContext";
@@ -19,7 +20,26 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      screenOptions={{ tabBarActiveTintColor: "#1E3989", headerShown: false }}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: "#1E3989",
+        tabBarInactiveTintColor: "#8FA1CC",
+        tabBarStyle: styles.tabBar,
+        tabBarIcon: ({ color, size }) => {
+          let iconName: React.ComponentProps<typeof Ionicons>["name"] =
+            "ellipse-outline";
+
+          if (route.name === "index") {
+            iconName = "home-outline";
+          } else if (route.name === "courses") {
+            iconName = "library-outline";
+          } else if (route.name === "profile") {
+            iconName = "person-circle-outline";
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+      })}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="courses" options={{ title: "My Courses" }} />
@@ -34,5 +54,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F0F4FB",
+  },
+  tabBar: {
+    height: 64,
+    paddingBottom: 8,
+    paddingTop: 6,
+    backgroundColor: "#FFFFFF",
+    borderTopColor: "#E4EDF9",
+    borderTopWidth: 1,
   },
 });

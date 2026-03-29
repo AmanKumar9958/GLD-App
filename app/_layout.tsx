@@ -34,6 +34,7 @@ function RootNavigator() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="all-courses" />
     </Stack>
   );
 }

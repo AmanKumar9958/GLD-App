@@ -1,11 +1,19 @@
-import { useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import {
-    UserProfile,
-    getUserProfileWithCache,
+  UserProfile,
+  getUserProfileWithCache,
 } from "../../services/userProfile";
 
 type Course = {
@@ -17,11 +25,17 @@ type Course = {
   image: string;
 };
 
-const categories = [
-  { id: "design", label: "Design", icon: "✨" },
-  { id: "programming", label: "Programming", icon: "💻" },
-  { id: "health", label: "Health & Fit.", icon: "💙" },
-  { id: "more", label: "More", icon: "✦" },
+type CategoryItem = {
+  id: string;
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+};
+
+const categories: CategoryItem[] = [
+  { id: "english", label: "English Spoken", icon: "people-outline" },
+  { id: "academics", label: "Academics", icon: "school-outline" },
+  { id: "competitive", label: "Competitive Exams", icon: "ribbon-outline" },
+  { id: "more", label: "More", icon: "grid-outline" },
 ];
 
 const popularCourses: Course[] = [
@@ -112,9 +126,25 @@ function CourseCard({ course }: { course: Course }) {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { user: currentUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
+
+  const navigateToAllCourses = useCallback(
+    (category?: CategoryItem["label"]) => {
+      if (category && category !== "More") {
+        router.push({
+          pathname: "/all-courses",
+          params: { category },
+        });
+        return;
+      }
+
+      router.push("/all-courses");
+    },
+    [router],
+  );
 
   useEffect(() => {
     let active = true;
@@ -219,8 +249,18 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.headerIcons}>
-            <Text style={styles.headerIcon}>🔎</Text>
-            <Text style={styles.headerIcon}>🔔</Text>
+            <Ionicons
+              name="search-outline"
+              size={20}
+              color="#1E3989"
+              style={styles.headerIcon}
+            />
+            <Ionicons
+              name="notifications-outline"
+              size={20}
+              color="#1E3989"
+              style={styles.headerIcon}
+            />
           </View>
         </View>
 
@@ -230,25 +270,44 @@ export default function HomeScreen() {
             <Text style={styles.bannerText}>
               Hurry! Today&apos;s your last chance
             </Text>
-            <Text style={styles.bannerText}>for a discount.</Text>
+            <Text style={styles.bannerText}>
+              for a discount on all courses.
+            </Text>
           </View>
-          <Text style={styles.bannerPercent}>75%</Text>
+          <Text style={styles.bannerPercent}>10%</Text>
         </View>
 
         <View style={styles.categoryRow}>
-          {categories.map((item) => (
-            <View key={item.id} style={styles.categoryItem}>
-              <View style={styles.categoryIconWrap}>
-                <Text style={styles.categoryIcon}>{item.icon}</Text>
-              </View>
-              <Text style={styles.categoryLabel}>{item.label}</Text>
-            </View>
-          ))}
+          {categories.map((item) => {
+            const isMore = item.id === "more";
+
+            return (
+              <Pressable
+                key={item.id}
+                style={styles.categoryItem}
+                onPress={() =>
+                  navigateToAllCourses(isMore ? undefined : item.label)
+                }
+              >
+                <View style={styles.categoryIconWrap}>
+                  <Ionicons
+                    name={item.icon}
+                    size={18}
+                    color="#1E3989"
+                    style={styles.categoryIcon}
+                  />
+                </View>
+                <Text style={styles.categoryLabel}>{item.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Popular Courses</Text>
-          <Text style={styles.sectionAction}>View all</Text>
+          <Pressable onPress={() => navigateToAllCourses()} hitSlop={8}>
+            <Text style={styles.sectionAction}>View all</Text>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -263,7 +322,9 @@ export default function HomeScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Top Rated Courses</Text>
-          <Text style={styles.sectionAction}>View all</Text>
+          <Pressable onPress={() => navigateToAllCourses()} hitSlop={8}>
+            <Text style={styles.sectionAction}>View all</Text>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -336,7 +397,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   headerIcon: {
-    fontSize: 17,
+    opacity: 0.95,
   },
   banner: {
     marginHorizontal: 16,
@@ -387,7 +448,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   categoryIcon: {
-    fontSize: 17,
+    opacity: 0.95,
   },
   categoryLabel: {
     fontSize: 11,
