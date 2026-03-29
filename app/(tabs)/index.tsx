@@ -9,8 +9,17 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
+import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useWishlist } from "../../context/WishlistContext";
 import {
   UserProfile,
@@ -117,7 +126,13 @@ function getIndiaGreeting(): string {
   return "Good Night";
 }
 
-function CourseCard({ course }: { course: Course }) {
+function CourseCard({
+  course,
+  styles,
+}: {
+  course: Course;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View style={styles.courseCard}>
       <Image source={{ uri: course.image }} style={styles.courseImage} />
@@ -138,9 +153,12 @@ function CourseCard({ course }: { course: Course }) {
 export default function HomeScreen() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { wishlistCount } = useWishlist();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
+  const toggleProgress = useSharedValue(isDark ? 1 : 0);
 
   const navigateToAllCourses = useCallback(
     (category?: CategoryItem["label"]) => {
@@ -239,6 +257,39 @@ export default function HomeScreen() {
     return profile?.photoURL || currentUser?.photoURL || defaultAvatar;
   }, [profile?.photoURL, currentUser?.photoURL]);
 
+  useEffect(() => {
+    toggleProgress.value = withTiming(isDark ? 1 : 0, {
+      duration: 460,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+  }, [isDark, toggleProgress]);
+
+  const toggleIconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        rotate: `${toggleProgress.value * 180}deg`,
+      },
+      {
+        scale: interpolate(toggleProgress.value, [0, 1], [0.94, 1]),
+      },
+    ],
+    opacity: interpolate(toggleProgress.value, [0, 0.5, 1], [0.75, 1, 0.9]),
+  }));
+
+  const toggleThumbAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(toggleProgress.value, [0, 1], [0, 19]) },
+    ],
+  }));
+
+  const toggleTrackAnimatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      toggleProgress.value,
+      [0, 1],
+      [colors.surface, colors.surfaceAlt],
+    ),
+  }));
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <ScrollView
@@ -268,7 +319,7 @@ export default function HomeScreen() {
               <Ionicons
                 name="heart-outline"
                 size={20}
-                color="#1E3989"
+                color={colors.primary}
                 style={styles.headerIcon}
               />
               {wishlistCount > 0 ? (
@@ -279,10 +330,29 @@ export default function HomeScreen() {
                 </View>
               ) : null}
             </Pressable>
+            <Pressable
+              style={styles.themeSwitch}
+              onPress={toggleTheme}
+              hitSlop={8}
+            >
+              <Animated.View
+                style={[styles.themeTrack, toggleTrackAnimatedStyle]}
+              />
+              <Animated.View
+                style={[styles.themeThumb, toggleThumbAnimatedStyle]}
+              />
+              <Animated.View style={toggleIconAnimatedStyle}>
+                <Ionicons
+                  name={isDark ? "sunny-outline" : "moon-outline"}
+                  size={14}
+                  color={colors.primary}
+                />
+              </Animated.View>
+            </Pressable>
             <Ionicons
               name="notifications-outline"
               size={20}
-              color="#1E3989"
+              color={colors.primary}
               style={styles.headerIcon}
             />
           </View>
@@ -317,7 +387,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name={item.icon}
                     size={18}
-                    color="#1E3989"
+                    color={colors.primary}
                     style={styles.categoryIcon}
                   />
                 </View>
@@ -340,7 +410,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         >
           {homeCoursesFromAllCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard key={course.id} course={course} styles={styles} />
           ))}
         </ScrollView>
 
@@ -357,7 +427,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         >
           {popularCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard key={course.id} course={course} styles={styles} />
           ))}
         </ScrollView>
       </ScrollView>
@@ -365,214 +435,243 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F0F4FB",
-  },
-  flex: {
-    flex: 1,
-  },
-  screen: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  headerRow: {
-    marginTop: 22,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  profileRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  avatarPlaceholder: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#E4EDF9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  greeting: {
-    fontSize: 12,
-    color: "#8090C0",
-    marginBottom: 2,
-    fontWeight: "500",
-  },
-  name: {
-    fontSize: 14,
-    color: "#1E3989",
-    fontWeight: "700",
-  },
-  headerIcons: {
-    flexDirection: "row",
-    gap: 14,
-    alignItems: "center",
-  },
-  headerIcon: {
-    opacity: 0.95,
-  },
-  wishlistTrigger: {
-    position: "relative",
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  wishlistBadge: {
-    position: "absolute",
-    top: -7,
-    right: -9,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 999,
-    paddingHorizontal: 4,
-    backgroundColor: "#DC2626",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  wishlistBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "800",
-    lineHeight: 11,
-  },
-  banner: {
-    marginHorizontal: 16,
-    borderRadius: 22,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#1E3989",
-  },
-  bannerKicker: {
-    color: "#CCDEFF",
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  bannerText: {
-    color: "#EEF4FF",
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: "500",
-  },
-  bannerPercent: {
-    color: "#ffffff",
-    fontSize: 36,
-    fontWeight: "800",
-    letterSpacing: -1,
-    marginTop: 2,
-  },
-  categoryRow: {
-    marginTop: 18,
-    marginBottom: 16,
-    paddingHorizontal: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  categoryItem: {
-    width: "24%",
-    alignItems: "center",
-    gap: 7,
-  },
-  categoryIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: "#E4EDF9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  categoryIcon: {
-    opacity: 0.95,
-  },
-  categoryLabel: {
-    fontSize: 11,
-    color: "#8090C0",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionTitle: {
-    fontSize: 20,
-    color: "#1E3989",
-    fontWeight: "700",
-  },
-  sectionAction: {
-    fontSize: 13,
-    color: "#1E3989",
-    fontWeight: "600",
-  },
-  horizontalList: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  courseCard: {
-    width: 170,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    padding: 8,
-    shadowColor: "#1E3989",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  courseImage: {
-    width: "100%",
-    height: 92,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: "#D5E2F5",
-  },
-  courseMetaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 3,
-  },
-  courseTitle: {
-    flex: 1,
-    fontSize: 13,
-    color: "#1E3989",
-    fontWeight: "700",
-  },
-  coursePrice: {
-    fontSize: 11,
-    color: "#ffffff",
-    fontWeight: "700",
-    backgroundColor: "#1E3989",
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  courseSub: {
-    fontSize: 10,
-    color: "#8090C0",
-    marginBottom: 2,
-    fontWeight: "500",
-  },
-});
+const createStyles = (colors: AppThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    flex: {
+      flex: 1,
+    },
+    screen: {
+      flex: 1,
+    },
+    contentContainer: {
+      paddingBottom: 24,
+    },
+    headerRow: {
+      marginTop: 22,
+      marginBottom: 16,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    profileRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+    },
+    avatarPlaceholder: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    greeting: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 2,
+      fontWeight: "500",
+    },
+    name: {
+      fontSize: 14,
+      color: colors.textPrimary,
+      fontWeight: "700",
+    },
+    headerIcons: {
+      flexDirection: "row",
+      gap: 14,
+      alignItems: "center",
+    },
+    headerIcon: {
+      opacity: 0.95,
+    },
+    wishlistTrigger: {
+      position: "relative",
+      width: 22,
+      height: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    wishlistBadge: {
+      position: "absolute",
+      top: -7,
+      right: -9,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 999,
+      paddingHorizontal: 4,
+      backgroundColor: colors.danger,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    wishlistBadgeText: {
+      color: "#FFFFFF",
+      fontSize: 9,
+      fontWeight: "800",
+      lineHeight: 11,
+    },
+    banner: {
+      marginHorizontal: 16,
+      borderRadius: 22,
+      paddingVertical: 20,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      backgroundColor: colors.surfaceAlt,
+    },
+    bannerKicker: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: "700",
+      marginBottom: 8,
+    },
+    bannerText: {
+      color: colors.textPrimary,
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight: "500",
+    },
+    bannerPercent: {
+      color: colors.textPrimary,
+      fontSize: 36,
+      fontWeight: "800",
+      letterSpacing: -1,
+      marginTop: 2,
+    },
+    categoryRow: {
+      marginTop: 18,
+      marginBottom: 16,
+      paddingHorizontal: 10,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    categoryItem: {
+      width: "24%",
+      alignItems: "center",
+      gap: 7,
+    },
+    categoryIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    categoryIcon: {
+      opacity: 0.95,
+    },
+    categoryLabel: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    sectionHeader: {
+      paddingHorizontal: 16,
+      marginTop: 4,
+      marginBottom: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    sectionTitle: {
+      fontSize: 20,
+      color: colors.textPrimary,
+      fontWeight: "700",
+    },
+    sectionAction: {
+      fontSize: 13,
+      color: colors.primary,
+      fontWeight: "600",
+    },
+    horizontalList: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      gap: 12,
+    },
+    courseCard: {
+      width: 170,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      padding: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    courseImage: {
+      width: "100%",
+      height: 92,
+      borderRadius: 12,
+      marginBottom: 8,
+      backgroundColor: colors.border,
+    },
+    courseMetaRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 3,
+    },
+    courseTitle: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.textPrimary,
+      fontWeight: "700",
+    },
+    coursePrice: {
+      fontSize: 11,
+      color: isDark ? "#0B1220" : colors.white,
+      fontWeight: "700",
+      backgroundColor: isDark ? "#C7D4FF" : colors.primary,
+      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    courseSub: {
+      fontSize: 10,
+      color: colors.textSecondary,
+      marginBottom: 2,
+      fontWeight: "500",
+    },
+    themeSwitch: {
+      width: 44,
+      height: 24,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: "center",
+      paddingHorizontal: 4,
+      position: "relative",
+      overflow: "hidden",
+    },
+    themeTrack: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 999,
+      backgroundColor: colors.surface,
+    },
+    themeThumb: {
+      position: "absolute",
+      left: 2,
+      width: 20,
+      height: 20,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceAlt,
+    },
+  });

@@ -2,20 +2,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Easing,
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useWishlist } from "../context/WishlistContext";
+import { AppThemeColors, useTheme } from "../../context/ThemeContext";
+import { useWishlist } from "../../context/WishlistContext";
 
 type AllCourse = {
   id: string;
@@ -181,7 +182,13 @@ function isCategoryFilter(value: string): value is CategoryFilter {
   );
 }
 
-function CourseSkeletonCard({ id }: { id: number }) {
+function CourseSkeletonCard({
+  id,
+  styles,
+}: {
+  id: number;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View key={`skeleton-${id}`} style={styles.courseCard}>
       <View style={[styles.courseImage, styles.skeletonBlock]} />
@@ -199,6 +206,8 @@ function CourseSkeletonCard({ id }: { id: number }) {
 export default function AllCoursesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string | string[] }>();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   const initialCategory = useMemo<CategoryFilter>(() => {
@@ -226,6 +235,7 @@ export default function AllCoursesScreen() {
   const detailsSlideY = useState(
     () => new Animated.Value(DETAILS_SHEET_HIDDEN_Y),
   )[0];
+  const detailsBackdropOpacity = useState(() => new Animated.Value(0))[0];
 
   useEffect(() => {
     setSelectedCategory(initialCategory);
@@ -296,22 +306,40 @@ export default function AllCoursesScreen() {
     setSelectedCourse(course);
     setIsDetailsVisible(true);
     detailsSlideY.setValue(DETAILS_SHEET_HIDDEN_Y);
+    detailsBackdropOpacity.setValue(0);
 
-    Animated.timing(detailsSlideY, {
-      toValue: 0,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.spring(detailsSlideY, {
+        toValue: 0,
+        damping: 17,
+        stiffness: 180,
+        mass: 0.9,
+        useNativeDriver: true,
+      }),
+      Animated.timing(detailsBackdropOpacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const closeCourseDetails = () => {
-    Animated.timing(detailsSlideY, {
-      toValue: DETAILS_SHEET_HIDDEN_Y,
-      duration: 220,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    Animated.parallel([
+      Animated.timing(detailsSlideY, {
+        toValue: DETAILS_SHEET_HIDDEN_Y,
+        duration: 230,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(detailsBackdropOpacity, {
+        toValue: 0,
+        duration: 190,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
       if (finished) {
         setIsDetailsVisible(false);
         setSelectedCourse(null);
@@ -346,7 +374,7 @@ export default function AllCoursesScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={22} color="#1E3989" />
+          <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </Pressable>
         <Text style={styles.pageTitle}>All Courses</Text>
         <Pressable
@@ -357,7 +385,7 @@ export default function AllCoursesScreen() {
           <Ionicons
             name={showFilters ? "eye-off-outline" : "eye-outline"}
             size={15}
-            color="#1E3989"
+            color={colors.primary}
           />
           <Text style={styles.filtersToggleText}>
             {showFilters ? "Hide Filters" : "Show Filters"}
@@ -430,7 +458,7 @@ export default function AllCoursesScreen() {
 
         {isCoursesLoading
           ? Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
-              <CourseSkeletonCard key={idx + 1} id={idx + 1} />
+              <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
             ))
           : null}
 
@@ -472,7 +500,7 @@ export default function AllCoursesScreen() {
                       <Ionicons
                         name={getCategoryIcon(course.category)}
                         size={14}
-                        color="#1E3989"
+                        color={colors.primary}
                       />
                       <Text style={styles.metaText}>{course.category}</Text>
                     </View>
@@ -480,7 +508,7 @@ export default function AllCoursesScreen() {
                       <Ionicons
                         name="layers-outline"
                         size={14}
-                        color="#1E3989"
+                        color={colors.primary}
                       />
                       <Text style={styles.metaText}>{course.level}</Text>
                     </View>
@@ -488,13 +516,21 @@ export default function AllCoursesScreen() {
 
                   <View style={styles.metaRow}>
                     <View style={styles.metaItem}>
-                      <Ionicons name="book-outline" size={14} color="#8090C0" />
+                      <Ionicons
+                        name="book-outline"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
                       <Text style={styles.secondaryMetaText}>
                         {course.lessons} lessons
                       </Text>
                     </View>
                     <View style={styles.metaItem}>
-                      <Ionicons name="time-outline" size={14} color="#8090C0" />
+                      <Ionicons
+                        name="time-outline"
+                        size={14}
+                        color={colors.textSecondary}
+                      />
                       <Text style={styles.secondaryMetaText}>
                         {course.duration}
                       </Text>
@@ -503,7 +539,11 @@ export default function AllCoursesScreen() {
 
                   <View style={styles.metaRow}>
                     <View style={styles.metaItem}>
-                      <Ionicons name="star-outline" size={14} color="#F59E0B" />
+                      <Ionicons
+                        name="star-outline"
+                        size={14}
+                        color={colors.warning}
+                      />
                       <Text style={styles.secondaryMetaText}>
                         {course.rating.toFixed(1)}
                       </Text>
@@ -512,7 +552,7 @@ export default function AllCoursesScreen() {
                       <Ionicons
                         name="people-outline"
                         size={14}
-                        color="#8090C0"
+                        color={colors.textSecondary}
                       />
                       <Text style={styles.secondaryMetaText}>
                         {course.learners} learners
@@ -535,7 +575,7 @@ export default function AllCoursesScreen() {
           >
             {isLoadingMore ? (
               <View style={styles.loadingMoreRow}>
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.white} />
                 <Text style={styles.showMoreButtonText}>Loading...</Text>
               </View>
             ) : (
@@ -556,10 +596,14 @@ export default function AllCoursesScreen() {
         onRequestClose={closeCourseDetails}
       >
         <View style={styles.modalRoot}>
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={closeCourseDetails}
-          />
+          <Animated.View
+            style={[styles.modalBackdrop, { opacity: detailsBackdropOpacity }]}
+          >
+            <Pressable
+              style={styles.modalBackdropPressable}
+              onPress={closeCourseDetails}
+            />
+          </Animated.View>
 
           <Animated.View
             style={[
@@ -595,38 +639,58 @@ export default function AllCoursesScreen() {
                     <Ionicons
                       name={getCategoryIcon(selectedCourse.category)}
                       size={15}
-                      color="#1E3989"
+                      color={colors.primary}
                     />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.category}
                     </Text>
                   </View>
                   <View style={styles.detailsMetaItem}>
-                    <Ionicons name="layers-outline" size={15} color="#1E3989" />
+                    <Ionicons
+                      name="layers-outline"
+                      size={15}
+                      color={colors.primary}
+                    />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.level}
                     </Text>
                   </View>
                   <View style={styles.detailsMetaItem}>
-                    <Ionicons name="book-outline" size={15} color="#1E3989" />
+                    <Ionicons
+                      name="book-outline"
+                      size={15}
+                      color={colors.primary}
+                    />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.lessons} lessons
                     </Text>
                   </View>
                   <View style={styles.detailsMetaItem}>
-                    <Ionicons name="time-outline" size={15} color="#1E3989" />
+                    <Ionicons
+                      name="time-outline"
+                      size={15}
+                      color={colors.primary}
+                    />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.duration}
                     </Text>
                   </View>
                   <View style={styles.detailsMetaItem}>
-                    <Ionicons name="star-outline" size={15} color="#F59E0B" />
+                    <Ionicons
+                      name="star-outline"
+                      size={15}
+                      color={colors.warning}
+                    />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.rating.toFixed(1)} rating
                     </Text>
                   </View>
                   <View style={styles.detailsMetaItem}>
-                    <Ionicons name="people-outline" size={15} color="#1E3989" />
+                    <Ionicons
+                      name="people-outline"
+                      size={15}
+                      color={colors.primary}
+                    />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.learners} learners
                     </Text>
@@ -651,7 +715,11 @@ export default function AllCoursesScreen() {
                         isSelectedCourseWishlisted ? "heart" : "heart-outline"
                       }
                       size={20}
-                      color={isSelectedCourseWishlisted ? "#FFFFFF" : "#1E3989"}
+                      color={
+                        isSelectedCourseWishlisted
+                          ? colors.white
+                          : colors.primary
+                      }
                     />
                   </Pressable>
                 </View>
@@ -664,336 +732,340 @@ export default function AllCoursesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F0F4FB",
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1E3989",
-  },
-  filtersToggleBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#FFFFFF",
-  },
-  filtersToggleText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#1E3989",
-  },
-  screen: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 14,
-    paddingBottom: 24,
-    gap: 12,
-  },
-  filtersCard: {
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D5E2F5",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  filtersHeading: {
-    fontSize: 12,
-    color: "#8090C0",
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  filterChip: {
-    borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#F8FAFF",
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-  filterChipSelected: {
-    borderColor: "#1E3989",
-    backgroundColor: "#E8EEFF",
-  },
-  filterChipText: {
-    fontSize: 12,
-    color: "#8090C0",
-    fontWeight: "600",
-  },
-  filterChipTextSelected: {
-    color: "#1E3989",
-  },
-  emptyState: {
-    borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  emptyTitle: {
-    fontSize: 15,
-    color: "#1E3989",
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: "#8090C0",
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  showMoreButton: {
-    marginTop: 2,
-    marginBottom: 6,
-    alignSelf: "center",
-    minWidth: 140,
-    borderRadius: 12,
-    backgroundColor: "#1E3989",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-  },
-  showMoreDisabled: {
-    opacity: 0.8,
-  },
-  loadingMoreRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  showMoreButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  noMoreWrap: {
-    marginTop: 2,
-    marginBottom: 6,
-    alignSelf: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  noMoreText: {
-    color: "#8090C0",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  skeletonBlock: {
-    backgroundColor: "#E4EDF9",
-  },
-  skeletonLine: {
-    borderRadius: 8,
-    backgroundColor: "#E4EDF9",
-    height: 11,
-  },
-  skeletonTitle: {
-    width: "85%",
-    height: 14,
-  },
-  skeletonMentor: {
-    width: "58%",
-  },
-  skeletonMeta: {
-    width: "72%",
-  },
-  courseCard: {
-    flexDirection: "row",
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D5E2F5",
-    overflow: "hidden",
-  },
-  courseImage: {
-    width: 108,
-    height: 128,
-    backgroundColor: "#D5E2F5",
-  },
-  courseContent: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  courseTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1E3989",
-  },
-  priceTag: {
-    fontSize: 11,
-    color: "#FFFFFF",
-    fontWeight: "700",
-    backgroundColor: "#1E3989",
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  mentorText: {
-    fontSize: 12,
-    color: "#8090C0",
-    fontWeight: "500",
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    maxWidth: "52%",
-  },
-  metaText: {
-    fontSize: 11,
-    color: "#1E3989",
-    fontWeight: "600",
-  },
-  secondaryMetaText: {
-    fontSize: 11,
-    color: "#8090C0",
-    fontWeight: "500",
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(9, 19, 49, 0.42)",
-  },
-  detailsSheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 22,
-    gap: 10,
-  },
-  detailsHandle: {
-    alignSelf: "center",
-    width: 46,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: "#D5E2F5",
-    marginBottom: 4,
-  },
-  detailsImage: {
-    width: "100%",
-    height: 180,
-    borderRadius: 14,
-    backgroundColor: "#D5E2F5",
-  },
-  detailsTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: 2,
-  },
-  detailsTitle: {
-    flex: 1,
-    fontSize: 18,
-    color: "#1E3989",
-    fontWeight: "800",
-  },
-  detailsPrice: {
-    fontSize: 13,
-    color: "#FFFFFF",
-    fontWeight: "700",
-    backgroundColor: "#1E3989",
-    borderRadius: 9,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  detailsMentor: {
-    fontSize: 13,
-    color: "#8090C0",
-    fontWeight: "600",
-    marginTop: -2,
-  },
-  detailsMetaGrid: {
-    marginTop: 2,
-    gap: 8,
-  },
-  detailsMetaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  detailsMetaText: {
-    fontSize: 13,
-    color: "#1E3989",
-    fontWeight: "600",
-  },
-  detailsActionsRow: {
-    marginTop: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  buyNowButton: {
-    flex: 1,
-    marginTop: 4,
-    backgroundColor: "#1E3989",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-  },
-  buyNowButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  wishlistIconButton: {
-    marginTop: 4,
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#1E3989",
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  wishlistIconButtonActive: {
-    backgroundColor: "#1E3989",
-  },
-});
+const createStyles = (colors: AppThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingTop: 18,
+      paddingBottom: 10,
+    },
+    pageTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.textPrimary,
+    },
+    filtersToggleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    filtersToggleText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.textPrimary,
+    },
+    screen: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: 14,
+      paddingBottom: 24,
+      gap: 12,
+    },
+    filtersCard: {
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      gap: 8,
+    },
+    filtersHeading: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "700",
+      marginTop: 2,
+    },
+    filterRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    filterChip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceAlt,
+      borderRadius: 999,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+    },
+    filterChipSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceAlt,
+    },
+    filterChipText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "600",
+    },
+    filterChipTextSelected: {
+      color: colors.textPrimary,
+    },
+    emptyState: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 20,
+      alignItems: "center",
+    },
+    emptyTitle: {
+      fontSize: 15,
+      color: colors.textPrimary,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    emptySubtitle: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: "center",
+      fontWeight: "500",
+    },
+    showMoreButton: {
+      marginTop: 2,
+      marginBottom: 6,
+      alignSelf: "center",
+      minWidth: 140,
+      borderRadius: 12,
+      backgroundColor: isDark ? "#DDE6FF" : colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 11,
+      paddingHorizontal: 20,
+    },
+    showMoreDisabled: {
+      opacity: 0.8,
+    },
+    loadingMoreRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    showMoreButtonText: {
+      color: isDark ? "#0B1220" : colors.white,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    noMoreWrap: {
+      marginTop: 2,
+      marginBottom: 6,
+      alignSelf: "center",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    noMoreText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    skeletonBlock: {
+      backgroundColor: colors.border,
+    },
+    skeletonLine: {
+      borderRadius: 8,
+      backgroundColor: colors.border,
+      height: 11,
+    },
+    skeletonTitle: {
+      width: "85%",
+      height: 14,
+    },
+    skeletonMentor: {
+      width: "58%",
+    },
+    skeletonMeta: {
+      width: "72%",
+    },
+    courseCard: {
+      flexDirection: "row",
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    courseImage: {
+      width: 108,
+      height: 128,
+      backgroundColor: colors.border,
+    },
+    courseContent: {
+      flex: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      gap: 6,
+    },
+    titleRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 8,
+    },
+    courseTitle: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.textPrimary,
+    },
+    priceTag: {
+      fontSize: 11,
+      color: isDark ? "#0B1220" : colors.white,
+      fontWeight: "700",
+      backgroundColor: isDark ? "#C7D4FF" : colors.primary,
+      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    mentorText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+    },
+    metaItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      maxWidth: "52%",
+    },
+    metaText: {
+      fontSize: 11,
+      color: colors.textPrimary,
+      fontWeight: "600",
+    },
+    secondaryMetaText: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
+    modalRoot: {
+      flex: 1,
+      justifyContent: "flex-end",
+    },
+    modalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.overlay,
+    },
+    modalBackdropPressable: {
+      flex: 1,
+    },
+    detailsSheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 22,
+      gap: 10,
+    },
+    detailsHandle: {
+      alignSelf: "center",
+      width: 46,
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: colors.border,
+      marginBottom: 4,
+    },
+    detailsImage: {
+      width: "100%",
+      height: 180,
+      borderRadius: 14,
+      backgroundColor: colors.border,
+    },
+    detailsTitleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 10,
+      marginTop: 2,
+    },
+    detailsTitle: {
+      flex: 1,
+      fontSize: 18,
+      color: colors.textPrimary,
+      fontWeight: "800",
+    },
+    detailsPrice: {
+      fontSize: 13,
+      color: isDark ? "#0B1220" : colors.white,
+      fontWeight: "700",
+      backgroundColor: isDark ? "#C7D4FF" : colors.primary,
+      borderRadius: 9,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    detailsMentor: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontWeight: "600",
+      marginTop: -2,
+    },
+    detailsMetaGrid: {
+      marginTop: 2,
+      gap: 8,
+    },
+    detailsMetaItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+    },
+    detailsMetaText: {
+      fontSize: 13,
+      color: colors.textPrimary,
+      fontWeight: "600",
+    },
+    detailsActionsRow: {
+      marginTop: 4,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    buyNowButton: {
+      flex: 1,
+      marginTop: 4,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+    },
+    buyNowButtonText: {
+      color: colors.white,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    wishlistIconButton: {
+      marginTop: 4,
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    wishlistIconButtonActive: {
+      backgroundColor: colors.primary,
+    },
+  });

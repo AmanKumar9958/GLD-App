@@ -2,12 +2,27 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
 
 export default function RootLayout() {
   return (
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
+  );
+}
+
+function AppShell() {
+  const { isDark } = useTheme();
+
+  return (
     <>
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <StatusBar
+        style={isDark ? "light" : "dark"}
+        translucent
+        backgroundColor="transparent"
+      />
       <AuthProvider>
         <WishlistProvider>
           <RootNavigator />
@@ -19,11 +34,13 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { isAuthResolved } = useAuth();
+  const { colors } = useTheme();
+  const styles = createStyles(colors.background);
 
   if (!isAuthResolved) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#1E3989" />
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   }
@@ -33,21 +50,20 @@ function RootNavigator() {
       screenOptions={{
         headerShown: false,
         animation: "slide_from_right",
+        contentStyle: {
+          backgroundColor: colors.background,
+        },
       }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="all-courses" />
-      <Stack.Screen name="wishlist" />
-    </Stack>
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F0F4FB",
-  },
-});
+const createStyles = (backgroundColor: string) =>
+  StyleSheet.create({
+    loadingContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor,
+    },
+  });
