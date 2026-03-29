@@ -59,24 +59,33 @@ const popularCourses: Course[] = [
   },
 ];
 
-const topRatedCourses: Course[] = [
+const homeCoursesFromAllCourses: Course[] = [
   {
-    id: "course-3",
-    title: "Motion Design Lab",
-    mentor: "Nina Callen",
-    lessons: 24,
-    price: "$83.00",
+    id: "all-1",
+    title: "Fluent English in 30 Days",
+    mentor: "Riya Sharma",
+    lessons: 36,
+    price: "$49",
     image:
-      "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=900&q=80",
   },
   {
-    id: "course-4",
-    title: "App Branding Kit",
-    mentor: "Zain Ali",
-    lessons: 19,
-    price: "$69.00",
+    id: "all-3",
+    title: "Class 10 Science Masterclass",
+    mentor: "Neha Tiwari",
+    lessons: 42,
+    price: "$69",
     image:
-      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "all-5",
+    title: "SSC CGL Complete Preparation",
+    mentor: "Rohit Yadav",
+    lessons: 54,
+    price: "$79",
+    image:
+      "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=900&q=80",
   },
 ];
 
@@ -304,6 +313,23 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recommended Courses</Text>
+          <Pressable onPress={() => navigateToAllCourses()} hitSlop={8}>
+            <Text style={styles.sectionAction}>View all</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {homeCoursesFromAllCourses.map((course) => (
+            <CourseCard key={course.id} course={course} />
+          ))}
+        </ScrollView>
+
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Popular Courses</Text>
           <Pressable onPress={() => navigateToAllCourses()} hitSlop={8}>
             <Text style={styles.sectionAction}>View all</Text>
@@ -316,23 +342,6 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         >
           {popularCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
-        </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top Rated Courses</Text>
-          <Pressable onPress={() => navigateToAllCourses()} hitSlop={8}>
-            <Text style={styles.sectionAction}>View all</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {topRatedCourses.map((course) => (
             <CourseCard key={course.id} course={course} />
           ))}
         </ScrollView>
