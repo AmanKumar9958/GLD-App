@@ -3,7 +3,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
     Image,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -11,6 +15,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useWishlist } from "../context/WishlistContext";
 
 type AllCourse = {
   id: string;
@@ -32,6 +37,7 @@ type PriceFilter = "All" | "Under $60" | "$60 - $70" | "Above $70";
 const COURSES_PAGE_SIZE = 4;
 const FILTER_LOAD_DELAY_MS = 450;
 const LOAD_MORE_DELAY_MS = 350;
+const DETAILS_SHEET_HIDDEN_Y = 520;
 
 const allCourses: AllCourse[] = [
   {
@@ -193,6 +199,7 @@ function CourseSkeletonCard({ id }: { id: number }) {
 export default function AllCoursesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string | string[] }>();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   const initialCategory = useMemo<CategoryFilter>(() => {
     const rawCategory =
@@ -214,6 +221,11 @@ export default function AllCoursesScreen() {
   const [visibleCount, setVisibleCount] = useState(COURSES_PAGE_SIZE);
   const [isCoursesLoading, setIsCoursesLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<AllCourse | null>(null);
+  const [isDetailsVisible, setIsDetailsVisible] = useState(false);
+  const detailsSlideY = useState(
+    () => new Animated.Value(DETAILS_SHEET_HIDDEN_Y),
+  )[0];
 
   useEffect(() => {
     setSelectedCategory(initialCategory);
@@ -279,6 +291,56 @@ export default function AllCoursesScreen() {
       setIsLoadingMore(false);
     }, LOAD_MORE_DELAY_MS);
   };
+
+  const openCourseDetails = (course: AllCourse) => {
+    setSelectedCourse(course);
+    setIsDetailsVisible(true);
+    detailsSlideY.setValue(DETAILS_SHEET_HIDDEN_Y);
+
+    Animated.timing(detailsSlideY, {
+      toValue: 0,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeCourseDetails = () => {
+    Animated.timing(detailsSlideY, {
+      toValue: DETAILS_SHEET_HIDDEN_Y,
+      duration: 220,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setIsDetailsVisible(false);
+        setSelectedCourse(null);
+      }
+    });
+  };
+
+  const handleBuyNow = () => {
+    if (!selectedCourse) {
+      return;
+    }
+
+    Alert.alert(
+      "Checkout coming soon",
+      `You selected ${selectedCourse.title}. We will add full checkout flow next.`,
+    );
+  };
+
+  const handleToggleWishlist = () => {
+    if (!selectedCourse) {
+      return;
+    }
+
+    toggleWishlist(selectedCourse);
+  };
+
+  const isSelectedCourseWishlisted = selectedCourse
+    ? isInWishlist(selectedCourse.id)
+    : false;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -383,7 +445,11 @@ export default function AllCoursesScreen() {
 
         {!isCoursesLoading
           ? visibleCourses.map((course) => (
-              <View key={course.id} style={styles.courseCard}>
+              <Pressable
+                key={course.id}
+                style={styles.courseCard}
+                onPress={() => openCourseDetails(course)}
+              >
                 <Image
                   source={{ uri: course.image }}
                   style={styles.courseImage}
@@ -454,7 +520,7 @@ export default function AllCoursesScreen() {
                     </View>
                   </View>
                 </View>
-              </View>
+              </Pressable>
             ))
           : null}
 
@@ -482,6 +548,118 @@ export default function AllCoursesScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <Modal
+        transparent
+        visible={isDetailsVisible}
+        animationType="none"
+        onRequestClose={closeCourseDetails}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={closeCourseDetails}
+          />
+
+          <Animated.View
+            style={[
+              styles.detailsSheet,
+              {
+                transform: [{ translateY: detailsSlideY }],
+              },
+            ]}
+          >
+            {selectedCourse ? (
+              <>
+                <View style={styles.detailsHandle} />
+                <Image
+                  source={{ uri: selectedCourse.image }}
+                  style={styles.detailsImage}
+                />
+
+                <View style={styles.detailsTitleRow}>
+                  <Text style={styles.detailsTitle}>
+                    {selectedCourse.title}
+                  </Text>
+                  <Text style={styles.detailsPrice}>
+                    {selectedCourse.price}
+                  </Text>
+                </View>
+
+                <Text style={styles.detailsMentor}>
+                  by {selectedCourse.mentor}
+                </Text>
+
+                <View style={styles.detailsMetaGrid}>
+                  <View style={styles.detailsMetaItem}>
+                    <Ionicons
+                      name={getCategoryIcon(selectedCourse.category)}
+                      size={15}
+                      color="#1E3989"
+                    />
+                    <Text style={styles.detailsMetaText}>
+                      {selectedCourse.category}
+                    </Text>
+                  </View>
+                  <View style={styles.detailsMetaItem}>
+                    <Ionicons name="layers-outline" size={15} color="#1E3989" />
+                    <Text style={styles.detailsMetaText}>
+                      {selectedCourse.level}
+                    </Text>
+                  </View>
+                  <View style={styles.detailsMetaItem}>
+                    <Ionicons name="book-outline" size={15} color="#1E3989" />
+                    <Text style={styles.detailsMetaText}>
+                      {selectedCourse.lessons} lessons
+                    </Text>
+                  </View>
+                  <View style={styles.detailsMetaItem}>
+                    <Ionicons name="time-outline" size={15} color="#1E3989" />
+                    <Text style={styles.detailsMetaText}>
+                      {selectedCourse.duration}
+                    </Text>
+                  </View>
+                  <View style={styles.detailsMetaItem}>
+                    <Ionicons name="star-outline" size={15} color="#F59E0B" />
+                    <Text style={styles.detailsMetaText}>
+                      {selectedCourse.rating.toFixed(1)} rating
+                    </Text>
+                  </View>
+                  <View style={styles.detailsMetaItem}>
+                    <Ionicons name="people-outline" size={15} color="#1E3989" />
+                    <Text style={styles.detailsMetaText}>
+                      {selectedCourse.learners} learners
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailsActionsRow}>
+                  <Pressable style={styles.buyNowButton} onPress={handleBuyNow}>
+                    <Text style={styles.buyNowButtonText}>Buy Now</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[
+                      styles.wishlistIconButton,
+                      isSelectedCourseWishlisted &&
+                        styles.wishlistIconButtonActive,
+                    ]}
+                    onPress={handleToggleWishlist}
+                  >
+                    <Ionicons
+                      name={
+                        isSelectedCourseWishlisted ? "heart" : "heart-outline"
+                      }
+                      size={20}
+                      color={isSelectedCourseWishlisted ? "#FFFFFF" : "#1E3989"}
+                    />
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -710,5 +888,112 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#8090C0",
     fontWeight: "500",
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(9, 19, 49, 0.42)",
+  },
+  detailsSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 22,
+    gap: 10,
+  },
+  detailsHandle: {
+    alignSelf: "center",
+    width: 46,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#D5E2F5",
+    marginBottom: 4,
+  },
+  detailsImage: {
+    width: "100%",
+    height: 180,
+    borderRadius: 14,
+    backgroundColor: "#D5E2F5",
+  },
+  detailsTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 2,
+  },
+  detailsTitle: {
+    flex: 1,
+    fontSize: 18,
+    color: "#1E3989",
+    fontWeight: "800",
+  },
+  detailsPrice: {
+    fontSize: 13,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    backgroundColor: "#1E3989",
+    borderRadius: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  detailsMentor: {
+    fontSize: 13,
+    color: "#8090C0",
+    fontWeight: "600",
+    marginTop: -2,
+  },
+  detailsMetaGrid: {
+    marginTop: 2,
+    gap: 8,
+  },
+  detailsMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  detailsMetaText: {
+    fontSize: 13,
+    color: "#1E3989",
+    fontWeight: "600",
+  },
+  detailsActionsRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  buyNowButton: {
+    flex: 1,
+    marginTop: 4,
+    backgroundColor: "#1E3989",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  buyNowButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  wishlistIconButton: {
+    marginTop: 4,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1E3989",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  wishlistIconButtonActive: {
+    backgroundColor: "#1E3989",
   },
 });

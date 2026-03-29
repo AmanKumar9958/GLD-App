@@ -2,13 +2,16 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { WishlistProvider } from "../context/WishlistContext";
 
 export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
       <AuthProvider>
-        <RootNavigator />
+        <WishlistProvider>
+          <RootNavigator />
+        </WishlistProvider>
       </AuthProvider>
     </>
   );
@@ -35,6 +38,7 @@ function RootNavigator() {
       <Stack.Screen name="index" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="all-courses" />
+      <Stack.Screen name="wishlist" />
     </Stack>
   );
 }

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
+import { useWishlist } from "../../context/WishlistContext";
 import {
   UserProfile,
   getUserProfileWithCache,
@@ -137,6 +138,7 @@ function CourseCard({ course }: { course: Course }) {
 export default function HomeScreen() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
+  const { wishlistCount } = useWishlist();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
 
@@ -258,12 +260,25 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.headerIcons}>
-            <Ionicons
-              name="search-outline"
-              size={20}
-              color="#1E3989"
-              style={styles.headerIcon}
-            />
+            <Pressable
+              style={styles.wishlistTrigger}
+              onPress={() => router.push("/wishlist")}
+              hitSlop={8}
+            >
+              <Ionicons
+                name="heart-outline"
+                size={20}
+                color="#1E3989"
+                style={styles.headerIcon}
+              />
+              {wishlistCount > 0 ? (
+                <View style={styles.wishlistBadge}>
+                  <Text style={styles.wishlistBadgeText}>
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
             <Ionicons
               name="notifications-outline"
               size={20}
@@ -404,9 +419,35 @@ const styles = StyleSheet.create({
   headerIcons: {
     flexDirection: "row",
     gap: 14,
+    alignItems: "center",
   },
   headerIcon: {
     opacity: 0.95,
+  },
+  wishlistTrigger: {
+    position: "relative",
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  wishlistBadge: {
+    position: "absolute",
+    top: -7,
+    right: -9,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 999,
+    paddingHorizontal: 4,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  wishlistBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
+    lineHeight: 11,
   },
   banner: {
     marginHorizontal: 16,

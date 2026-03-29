@@ -22,6 +22,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
+        animation: "shift",
         tabBarActiveTintColor: "#1E3989",
         tabBarInactiveTintColor: "#8FA1CC",
         tabBarStyle: styles.tabBar,
