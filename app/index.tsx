@@ -1,26 +1,19 @@
-import { useRouter } from "expo-router";
+import { Redirect } from "expo-router";
 import { useState } from "react";
-import {
-  Alert,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Spinner from "../components/Spinner";
+import { useAuth } from "../context/AuthContext";
 import { signInWithGoogle } from "../services/auth";
 
 export default function Index() {
-  const router = useRouter();
+  const { isAuthResolved, isAuthenticated } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleGoogleSignIn = async () => {
     try {
       setIsSigningIn(true);
       await signInWithGoogle();
-      router.replace("/(tabs)");
     } catch (error) {
       const message =
         error instanceof Error
@@ -32,6 +25,20 @@ export default function Index() {
       setIsSigningIn(false);
     }
   };
+
+  if (!isAuthResolved) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centeredSpinner}>
+          <Spinner size={28} color="#1E3989" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -91,6 +98,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     gap: 20,
+  },
+  centeredSpinner: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   card: {
     width: "100%",

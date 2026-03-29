@@ -1,26 +1,26 @@
-import { getAuth } from "@react-native-firebase/auth";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Alert,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Spinner from "../../components/Spinner";
+import { useAuth } from "../../context/AuthContext";
 import { signOutCurrentUser } from "../../services/auth";
 import {
-  UserProfile,
-  getUserProfileWithCache,
+    UserProfile,
+    getUserProfileWithCache,
 } from "../../services/userProfile";
 
 const defaultAvatar =
@@ -36,9 +36,7 @@ const menuItems = [
 ];
 
 export default function ProfileScreen() {
-  const router = useRouter();
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
+  const { user: currentUser } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);

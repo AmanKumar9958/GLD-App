@@ -1,4 +1,3 @@
-import { getAuth } from "@react-native-firebase/auth";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -11,6 +10,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 import {
     getUserCoursesWithCache,
     UserCourse,
@@ -27,7 +27,7 @@ const filters: { key: FilterKey; label: string }[] = [
 export default function CoursesScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const auth = getAuth();
+  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [courses, setCourses] = useState<UserCourse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function CoursesScreen() {
     let mounted = true;
 
     const loadCourses = async () => {
-      const uid = auth.currentUser?.uid;
+      const uid = user?.uid;
 
       if (!uid) {
         if (mounted) {
@@ -75,7 +75,7 @@ export default function CoursesScreen() {
     return () => {
       mounted = false;
     };
-  }, [auth]);
+  }, [user?.uid]);
 
   const filteredCourses = useMemo(() => {
     if (activeFilter === "all") {

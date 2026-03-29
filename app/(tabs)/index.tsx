@@ -1,11 +1,11 @@
-import { getAuth } from "@react-native-firebase/auth";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 import {
-  UserProfile,
-  getUserProfileWithCache,
+    UserProfile,
+    getUserProfileWithCache,
 } from "../../services/userProfile";
 
 type Course = {
@@ -112,8 +112,7 @@ function CourseCard({ course }: { course: Course }) {
 }
 
 export default function HomeScreen() {
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
+  const { user: currentUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
 

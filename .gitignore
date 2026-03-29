@@ -44,3 +44,4 @@ app-example
 
 .env
 google-services.json
+node-modules/

@@ -1,19 +1,19 @@
 import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithCredential,
-  signOut,
+    getAuth,
+    GoogleAuthProvider,
+    signInWithCredential,
+    signOut,
 } from "@react-native-firebase/auth";
 import {
-  collection,
-  doc,
-  getFirestore,
-  serverTimestamp,
-  setDoc,
+    collection,
+    doc,
+    getFirestore,
+    serverTimestamp,
+    setDoc,
 } from "@react-native-firebase/firestore";
 import {
-  GoogleSignin,
-  isSuccessResponse,
+    GoogleSignin,
+    isSuccessResponse,
 } from "@react-native-google-signin/google-signin";
 import Constants from "expo-constants";
 
@@ -93,7 +93,13 @@ export async function signInWithGoogle() {
 
   const auth = getAuth();
   const googleCredential = GoogleAuthProvider.credential(idToken);
-  return signInWithCredential(auth, googleCredential);
+  const credentialResult = await signInWithCredential(auth, googleCredential);
+
+  if (credentialResult.user) {
+    await persistSignedInUserProfile(credentialResult.user);
+  }
+
+  return credentialResult;
 }
 
 export async function signOutCurrentUser() {

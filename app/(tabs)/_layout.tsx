@@ -1,52 +1,20 @@
-import {
-  FirebaseAuthTypes,
-  getAuth,
-  onAuthStateChanged,
-} from "@react-native-firebase/auth";
-import { Tabs } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import { useAuth } from "../../context/AuthContext";
 
 export default function TabsLayout() {
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
-  const [isAuthResolved, setIsAuthResolved] = useState(false);
-  const navigation = useNavigation();
-  const hasRedirected = useRef(false);
+  const { isAuthResolved, isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    const auth = getAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setIsAuthResolved(true);
-
-      if (!nextUser && !hasRedirected.current) {
-        hasRedirected.current = true;
-        setTimeout(() => {
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "index" }], // this targets app/index.tsx (root index)
-            })
-          );
-        }, 50);
-      }
-
-      if (nextUser) {
-        hasRedirected.current = false; // reset on login
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation]);
-
-  if (!isAuthResolved || !user) {
+  if (!isAuthResolved) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color="#1E3989" />
       </View>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/" />;
   }
 
   return (
@@ -65,5 +33,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#F0F4FB",
   },
 });
