@@ -2,25 +2,40 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { ThemeProvider, useTheme } from "../context/ThemeContext";
+
+function ThemedStatusBar() {
+  const { theme } = useTheme();
+  return (
+    <StatusBar
+      style={theme.isDark ? "light" : "dark"}
+      translucent
+      backgroundColor="transparent"
+    />
+  );
+}
 
 export default function RootLayout() {
   return (
-    <>
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
+    <ThemeProvider>
       <AuthProvider>
+        <ThemedStatusBar />
         <RootNavigator />
       </AuthProvider>
-    </>
+    </ThemeProvider>
   );
 }
 
 function RootNavigator() {
   const { isAuthResolved } = useAuth();
+  const { theme } = useTheme();
 
   if (!isAuthResolved) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#1E3989" />
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.bg }]}
+      >
+        <ActivityIndicator size="small" color={theme.primary} />
       </View>
     );
   }
@@ -44,6 +59,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F0F4FB",
   },
 });

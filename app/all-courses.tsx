@@ -11,6 +11,8 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ThemeToggleButton from "../components/ThemeToggleButton";
+import { ThemePalette, useTheme } from "../context/ThemeContext";
 
 type AllCourse = {
   id: string;
@@ -175,7 +177,13 @@ function isCategoryFilter(value: string): value is CategoryFilter {
   );
 }
 
-function CourseSkeletonCard({ id }: { id: number }) {
+function CourseSkeletonCard({
+  id,
+  styles,
+}: {
+  id: number;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View key={`skeleton-${id}`} style={styles.courseCard}>
       <View style={[styles.courseImage, styles.skeletonBlock]} />
@@ -193,6 +201,8 @@ function CourseSkeletonCard({ id }: { id: number }) {
 export default function AllCoursesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string | string[] }>();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const initialCategory = useMemo<CategoryFilter>(() => {
     const rawCategory =
@@ -284,23 +294,26 @@ export default function AllCoursesScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={22} color="#1E3989" />
+          <Ionicons name="arrow-back" size={22} color={theme.primary} />
         </Pressable>
         <Text style={styles.pageTitle}>All Courses</Text>
-        <Pressable
-          onPress={() => setShowFilters((prev) => !prev)}
-          style={styles.filtersToggleBtn}
-          hitSlop={8}
-        >
-          <Ionicons
-            name={showFilters ? "eye-off-outline" : "eye-outline"}
-            size={15}
-            color="#1E3989"
-          />
-          <Text style={styles.filtersToggleText}>
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <Pressable
+            onPress={() => setShowFilters((prev) => !prev)}
+            style={styles.filtersToggleBtn}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={showFilters ? "eye-off-outline" : "eye-outline"}
+              size={15}
+              color={theme.primary}
+            />
+            <Text style={styles.filtersToggleText}>
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </Text>
+          </Pressable>
+          <ThemeToggleButton />
+        </View>
       </View>
 
       <ScrollView
@@ -368,7 +381,7 @@ export default function AllCoursesScreen() {
 
         {isCoursesLoading
           ? Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
-              <CourseSkeletonCard key={idx + 1} id={idx + 1} />
+              <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
             ))
           : null}
 
@@ -406,7 +419,7 @@ export default function AllCoursesScreen() {
                       <Ionicons
                         name={getCategoryIcon(course.category)}
                         size={14}
-                        color="#1E3989"
+                        color={theme.primary}
                       />
                       <Text style={styles.metaText}>{course.category}</Text>
                     </View>
@@ -414,7 +427,7 @@ export default function AllCoursesScreen() {
                       <Ionicons
                         name="layers-outline"
                         size={14}
-                        color="#1E3989"
+                        color={theme.primary}
                       />
                       <Text style={styles.metaText}>{course.level}</Text>
                     </View>
@@ -422,13 +435,13 @@ export default function AllCoursesScreen() {
 
                   <View style={styles.metaRow}>
                     <View style={styles.metaItem}>
-                      <Ionicons name="book-outline" size={14} color="#8090C0" />
+                      <Ionicons name="book-outline" size={14} color={theme.textSecondary} />
                       <Text style={styles.secondaryMetaText}>
                         {course.lessons} lessons
                       </Text>
                     </View>
                     <View style={styles.metaItem}>
-                      <Ionicons name="time-outline" size={14} color="#8090C0" />
+                      <Ionicons name="time-outline" size={14} color={theme.textSecondary} />
                       <Text style={styles.secondaryMetaText}>
                         {course.duration}
                       </Text>
@@ -446,7 +459,7 @@ export default function AllCoursesScreen() {
                       <Ionicons
                         name="people-outline"
                         size={14}
-                        color="#8090C0"
+                        color={theme.textSecondary}
                       />
                       <Text style={styles.secondaryMetaText}>
                         {course.learners} learners
@@ -486,10 +499,11 @@ export default function AllCoursesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: ThemePalette) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4FB",
+    backgroundColor: theme.bg,
   },
   headerRow: {
     flexDirection: "row",
@@ -502,7 +516,12 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#1E3989",
+    color: theme.text,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   filtersToggleBtn: {
     flexDirection: "row",
@@ -512,13 +531,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#FFFFFF",
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
   },
   filtersToggleText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#1E3989",
+    color: theme.primary,
   },
   screen: {
     flex: 1,
@@ -530,16 +549,16 @@ const styles = StyleSheet.create({
   },
   filtersCard: {
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#D5E2F5",
+    borderColor: theme.border,
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 8,
   },
   filtersHeading: {
     fontSize: 12,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "700",
     marginTop: 2,
   },
@@ -550,28 +569,28 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#F8FAFF",
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 7,
   },
   filterChipSelected: {
-    borderColor: "#1E3989",
-    backgroundColor: "#E8EEFF",
+    borderColor: theme.primary,
+    backgroundColor: theme.surfaceAlt,
   },
   filterChipText: {
     fontSize: 12,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "600",
   },
   filterChipTextSelected: {
-    color: "#1E3989",
+    color: theme.primary,
   },
   emptyState: {
     borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#FFFFFF",
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 20,
@@ -579,13 +598,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 15,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: "#8090C0",
+    color: theme.textSecondary,
     textAlign: "center",
     fontWeight: "500",
   },
@@ -595,7 +614,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     minWidth: 140,
     borderRadius: 12,
-    backgroundColor: "#1E3989",
+    backgroundColor: theme.primary,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 11,
@@ -622,16 +641,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   noMoreText: {
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontSize: 12,
     fontWeight: "600",
   },
   skeletonBlock: {
-    backgroundColor: "#E4EDF9",
+    backgroundColor: theme.surfaceAlt,
   },
   skeletonLine: {
     borderRadius: 8,
-    backgroundColor: "#E4EDF9",
+    backgroundColor: theme.surfaceAlt,
     height: 11,
   },
   skeletonTitle: {
@@ -647,15 +666,15 @@ const styles = StyleSheet.create({
   courseCard: {
     flexDirection: "row",
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#D5E2F5",
+    borderColor: theme.border,
     overflow: "hidden",
   },
   courseImage: {
     width: 108,
     height: 128,
-    backgroundColor: "#D5E2F5",
+    backgroundColor: theme.border,
   },
   courseContent: {
     flex: 1,
@@ -673,20 +692,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: "700",
-    color: "#1E3989",
+    color: theme.text,
   },
   priceTag: {
     fontSize: 11,
     color: "#FFFFFF",
     fontWeight: "700",
-    backgroundColor: "#1E3989",
+    backgroundColor: theme.primary,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
   mentorText: {
     fontSize: 12,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "500",
   },
   metaRow: {
@@ -703,12 +722,13 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: "#1E3989",
+    color: theme.primary,
     fontWeight: "600",
   },
   secondaryMetaText: {
     fontSize: 11,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "500",
   },
-});
+  });
+}

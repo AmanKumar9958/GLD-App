@@ -18,7 +18,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Spinner from "../../components/Spinner";
+import ThemeToggleButton from "../../components/ThemeToggleButton";
 import { useAuth } from "../../context/AuthContext";
+import { ThemePalette, useTheme } from "../../context/ThemeContext";
 import { signOutCurrentUser } from "../../services/auth";
 import {
   UserProfile,
@@ -42,6 +44,8 @@ const menuItems: ProfileMenuItem[] = [
 export default function ProfileScreen() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -164,6 +168,10 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <Animated.View style={[styles.flex, animatedStyle]}>
+        <View style={styles.topBar}>
+          <Text style={styles.topBarTitle}>Profile</Text>
+          <ThemeToggleButton />
+        </View>
         <ScrollView
           style={styles.screen}
           contentContainerStyle={styles.content}
@@ -177,7 +185,7 @@ export default function ProfileScreen() {
 
           {isLoading ? (
             <View style={styles.loaderWrap}>
-              <Spinner size={32} color="#1E3989" />
+              <Spinner size={32} color={theme.primary} />
             </View>
           ) : null}
 
@@ -190,11 +198,11 @@ export default function ProfileScreen() {
               >
                 <View style={styles.menuLeft}>
                   <View style={styles.menuIconWrap}>
-                    <Ionicons name={item.icon} size={16} color="#1E3989" />
+                    <Ionicons name={item.icon} size={16} color={theme.primary} />
                   </View>
                   <Text style={styles.menuLabel}>{item.label}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#8090C0" />
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
               </Pressable>
             ))}
           </View>
@@ -224,7 +232,7 @@ export default function ProfileScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.logoutModalCard}>
               <View style={styles.logoutIconWrap}>
-                <Ionicons name="log-out-outline" size={24} color="#1E3989" />
+                <Ionicons name="log-out-outline" size={24} color={theme.primary} />
               </View>
 
               <Text style={styles.modalTitle}>Logout</Text>
@@ -252,13 +260,27 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: ThemePalette) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4FB",
+    backgroundColor: theme.bg,
   },
   flex: {
     flex: 1,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  topBarTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: theme.text,
   },
   screen: {
     flex: 1,
@@ -277,17 +299,17 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 42,
     marginBottom: 10,
-    backgroundColor: "#D5E2F5",
+    backgroundColor: theme.border,
   },
   name: {
     fontSize: 19,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
     marginBottom: 4,
   },
   email: {
     fontSize: 13,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "500",
   },
   loaderWrap: {
@@ -296,10 +318,10 @@ const styles = StyleSheet.create({
   },
   listCard: {
     borderRadius: 16,
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.surface,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#D5E2F5",
+    borderColor: theme.border,
   },
   menuItem: {
     flexDirection: "row",
@@ -308,7 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#E4EDF9",
+    borderBottomColor: theme.surfaceAlt,
   },
   menuLeft: {
     flexDirection: "row",
@@ -321,17 +343,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E4EDF9",
+    backgroundColor: theme.surfaceAlt,
   },
   menuLabel: {
     fontSize: 15,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "600",
   },
   logoutButton: {
     marginTop: 18,
     borderRadius: 12,
-    backgroundColor: "#EF4444",
+    backgroundColor: theme.destructive,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
@@ -355,13 +377,13 @@ const styles = StyleSheet.create({
   logoutModalCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.surface,
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 16,
     borderWidth: 1,
-    borderColor: "#E4EDF9",
+    borderColor: theme.surfaceAlt,
   },
   logoutIconWrap: {
     width: 44,
@@ -369,19 +391,19 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FEE2E2",
+    backgroundColor: theme.destructiveSurface,
     marginBottom: 10,
   },
   modalTitle: {
     fontSize: 19,
     fontWeight: "800",
-    color: "#1E3989",
+    color: theme.text,
     marginBottom: 4,
   },
   modalSubtitle: {
     fontSize: 13,
     lineHeight: 20,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "500",
   },
   modalActions: {
@@ -394,13 +416,13 @@ const styles = StyleSheet.create({
     minHeight: 42,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#D5E2F5",
+    borderColor: theme.border,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F8FAFF",
+    backgroundColor: theme.bg,
   },
   cancelButtonText: {
-    color: "#1E3989",
+    color: theme.text,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -410,11 +432,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#EF4444",
+    backgroundColor: theme.destructive,
   },
   confirmButtonText: {
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
   },
-});
+  });
+}

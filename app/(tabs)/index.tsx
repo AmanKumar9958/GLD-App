@@ -10,7 +10,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ThemeToggleButton from "../../components/ThemeToggleButton";
 import { useAuth } from "../../context/AuthContext";
+import { ThemePalette, useTheme } from "../../context/ThemeContext";
 import {
   UserProfile,
   getUserProfileWithCache,
@@ -107,7 +109,13 @@ function getIndiaGreeting(): string {
   return "Good Night";
 }
 
-function CourseCard({ course }: { course: Course }) {
+function CourseCard({
+  course,
+  styles,
+}: {
+  course: Course;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View style={styles.courseCard}>
       <Image source={{ uri: course.image }} style={styles.courseImage} />
@@ -128,6 +136,8 @@ function CourseCard({ course }: { course: Course }) {
 export default function HomeScreen() {
   const router = useRouter();
   const { user: currentUser } = useAuth();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
 
@@ -249,16 +259,17 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.headerIcons}>
+            <ThemeToggleButton />
             <Ionicons
               name="search-outline"
               size={20}
-              color="#1E3989"
+              color={theme.primary}
               style={styles.headerIcon}
             />
             <Ionicons
               name="notifications-outline"
               size={20}
-              color="#1E3989"
+              color={theme.primary}
               style={styles.headerIcon}
             />
           </View>
@@ -293,7 +304,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name={item.icon}
                     size={18}
-                    color="#1E3989"
+                    color={theme.primary}
                     style={styles.categoryIcon}
                   />
                 </View>
@@ -316,7 +327,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         >
           {popularCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard key={course.id} course={course} styles={styles} />
           ))}
         </ScrollView>
 
@@ -333,7 +344,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         >
           {topRatedCourses.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard key={course.id} course={course} styles={styles} />
           ))}
         </ScrollView>
       </ScrollView>
@@ -341,10 +352,11 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: ThemePalette) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4FB",
+    backgroundColor: theme.bg,
   },
   flex: {
     flex: 1,
@@ -377,24 +389,25 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#E4EDF9",
+    backgroundColor: theme.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
   greeting: {
     fontSize: 12,
-    color: "#8090C0",
+    color: theme.textSecondary,
     marginBottom: 2,
     fontWeight: "500",
   },
   name: {
     fontSize: 14,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
   },
   headerIcons: {
     flexDirection: "row",
-    gap: 14,
+    gap: 10,
+    alignItems: "center",
   },
   headerIcon: {
     opacity: 0.95,
@@ -406,7 +419,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#1E3989",
+    backgroundColor: theme.bannerBg,
   },
   bannerKicker: {
     color: "#CCDEFF",
@@ -443,7 +456,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: "#E4EDF9",
+    backgroundColor: theme.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -452,7 +465,7 @@ const styles = StyleSheet.create({
   },
   categoryLabel: {
     fontSize: 11,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "600",
     textAlign: "center",
   },
@@ -466,12 +479,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
   },
   sectionAction: {
     fontSize: 13,
-    color: "#1E3989",
+    color: theme.primary,
     fontWeight: "600",
   },
   horizontalList: {
@@ -482,7 +495,7 @@ const styles = StyleSheet.create({
   courseCard: {
     width: 170,
     borderRadius: 16,
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.surface,
     padding: 8,
     shadowColor: "#1E3989",
     shadowOffset: { width: 0, height: 6 },
@@ -495,7 +508,7 @@ const styles = StyleSheet.create({
     height: 92,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: "#D5E2F5",
+    backgroundColor: theme.border,
   },
   courseMetaRow: {
     flexDirection: "row",
@@ -507,22 +520,23 @@ const styles = StyleSheet.create({
   courseTitle: {
     flex: 1,
     fontSize: 13,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
   },
   coursePrice: {
     fontSize: 11,
     color: "#ffffff",
     fontWeight: "700",
-    backgroundColor: "#1E3989",
+    backgroundColor: theme.primary,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
   courseSub: {
     fontSize: 10,
-    color: "#8090C0",
+    color: theme.textSecondary,
     marginBottom: 2,
     fontWeight: "500",
   },
-});
+  });
+}

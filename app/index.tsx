@@ -1,13 +1,16 @@
 import { Redirect } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
+import { ThemePalette, useTheme } from "../context/ThemeContext";
 import { signInWithGoogle } from "../services/auth";
 
 export default function Index() {
   const { isAuthResolved, isAuthenticated } = useAuth();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -30,7 +33,7 @@ export default function Index() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centeredSpinner}>
-          <Spinner size={28} color="#1E3989" />
+          <Spinner size={28} color={theme.primary} />
         </View>
       </SafeAreaView>
     );
@@ -77,7 +80,7 @@ export default function Index() {
             <Text style={styles.googleIconText}>G</Text>
           </View>
           {isSigningIn ? (
-            <Spinner size={22} color="#1E3989" />
+            <Spinner size={22} color={theme.primary} />
           ) : (
             <Text style={styles.googleButtonText}>Sign in with Google</Text>
           )}
@@ -87,10 +90,11 @@ export default function Index() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: ThemePalette) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4FB",
+    backgroundColor: theme.bg,
   },
   container: {
     flex: 1,
@@ -108,7 +112,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 360,
     borderRadius: 24,
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.surface,
     overflow: "hidden",
     shadowColor: "#1E3989",
     shadowOffset: { width: 0, height: 12 },
@@ -125,12 +129,12 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#8090C0",
+    color: theme.textSecondary,
   },
   heroImage: {
     width: "100%",
     height: 320,
-    backgroundColor: "#D5E2F5",
+    backgroundColor: theme.border,
   },
   content: {
     paddingHorizontal: 18,
@@ -141,16 +145,16 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 38,
     fontWeight: "800",
-    color: "#1E3989",
+    color: theme.text,
     marginBottom: 10,
   },
   highlight: {
-    color: "#1E3989",
+    color: theme.primary,
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "500",
   },
   googleButton: {
@@ -160,28 +164,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.surface,
     borderRadius: 14,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: "#D5E2F5",
+    borderColor: theme.border,
   },
   googleIconWrap: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#F0F4FB",
+    backgroundColor: theme.bg,
     alignItems: "center",
     justifyContent: "center",
   },
   googleIconText: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#1E3989",
+    color: theme.primary,
   },
   googleButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1E3989",
+    color: theme.text,
   },
-});
+  });
+}

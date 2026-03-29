@@ -2,14 +2,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function TabsLayout() {
   const { isAuthResolved, isAuthenticated } = useAuth();
+  const { theme } = useTheme();
 
   if (!isAuthResolved) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#1E3989" />
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.bg }]}
+      >
+        <ActivityIndicator size="small" color={theme.primary} />
       </View>
     );
   }
@@ -22,9 +26,16 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: "#1E3989",
-        tabBarInactiveTintColor: "#8FA1CC",
-        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarStyle: {
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 6,
+          backgroundColor: theme.tabBar,
+          borderTopColor: theme.tabBarBorder,
+          borderTopWidth: 1,
+        },
         tabBarIcon: ({ color, size }) => {
           let iconName: React.ComponentProps<typeof Ionicons>["name"] =
             "ellipse-outline";
@@ -53,14 +64,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F0F4FB",
-  },
-  tabBar: {
-    height: 64,
-    paddingBottom: 8,
-    paddingTop: 6,
-    backgroundColor: "#FFFFFF",
-    borderTopColor: "#E4EDF9",
-    borderTopWidth: 1,
   },
 });

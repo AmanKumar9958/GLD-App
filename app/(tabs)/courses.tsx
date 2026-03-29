@@ -11,7 +11,9 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ThemeToggleButton from "../../components/ThemeToggleButton";
 import { useAuth } from "../../context/AuthContext";
+import { ThemePalette, useTheme } from "../../context/ThemeContext";
 import {
     getUserCoursesWithCache,
     UserCourse,
@@ -29,6 +31,8 @@ export default function CoursesScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [courses, setCourses] = useState<UserCourse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,10 +103,10 @@ export default function CoursesScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.headerRow}>
         <Pressable onPress={handleBack} hitSlop={8}>
-          <Ionicons name="arrow-back" size={20} color="#1E3989" />
+          <Ionicons name="arrow-back" size={20} color={theme.primary} />
         </Pressable>
         <Text style={styles.pageTitle}>My Courses</Text>
-        <View style={styles.rightPlaceholder} />
+        <ThemeToggleButton />
       </View>
 
       <View style={styles.filterRow}>
@@ -141,7 +145,7 @@ export default function CoursesScreen() {
       >
         {isLoading ? (
           <View style={styles.loaderWrap}>
-            <ActivityIndicator size="small" color="#1E3989" />
+            <ActivityIndicator size="small" color={theme.primary} />
           </View>
         ) : null}
 
@@ -196,10 +200,11 @@ export default function CoursesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: ThemePalette) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F4FB",
+    backgroundColor: theme.bg,
   },
   headerRow: {
     flexDirection: "row",
@@ -211,18 +216,15 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: 20,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
-  },
-  rightPlaceholder: {
-    width: 24,
   },
   filterRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
     borderBottomWidth: 1,
-    borderBottomColor: "#D5E2F5",
+    borderBottomColor: theme.border,
     marginBottom: 6,
   },
   filterItem: {
@@ -231,12 +233,12 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 13,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "600",
     paddingBottom: 10,
   },
   filterLabelActive: {
-    color: "#1E3989",
+    color: theme.primary,
   },
   filterUnderline: {
     width: "100%",
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   filterUnderlineActive: {
-    backgroundColor: "#1E3989",
+    backgroundColor: theme.primary,
   },
   listContainer: {
     flex: 1,
@@ -261,8 +263,8 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     borderWidth: 1,
-    borderColor: "#D5E2F5",
-    backgroundColor: "#ffffff",
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 18,
@@ -270,30 +272,30 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 15,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: "#8090C0",
+    color: theme.textSecondary,
     textAlign: "center",
     fontWeight: "500",
   },
   courseRow: {
     flexDirection: "row",
     gap: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.surface,
     borderRadius: 14,
     padding: 8,
     borderWidth: 1,
-    borderColor: "#D5E2F5",
+    borderColor: theme.border,
   },
   courseImage: {
     width: 78,
     height: 62,
     borderRadius: 10,
-    backgroundColor: "#D5E2F5",
+    backgroundColor: theme.border,
   },
   courseBody: {
     flex: 1,
@@ -308,24 +310,24 @@ const styles = StyleSheet.create({
   courseTitle: {
     flex: 1,
     fontSize: 15,
-    color: "#1E3989",
+    color: theme.text,
     fontWeight: "700",
   },
   progressPct: {
     fontSize: 11,
-    color: "#8090C0",
+    color: theme.textSecondary,
     fontWeight: "700",
   },
   courseSubtitle: {
     fontSize: 11,
-    color: "#8090C0",
+    color: theme.textSecondary,
     marginTop: 2,
     marginBottom: 4,
     fontWeight: "500",
   },
   statusText: {
     fontSize: 11,
-    color: "#8090C0",
+    color: theme.textSecondary,
     marginBottom: 5,
     fontWeight: "600",
   },
@@ -333,12 +335,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 5,
     borderRadius: 999,
-    backgroundColor: "#D5E2F5",
+    backgroundColor: theme.border,
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#1E3989",
+    backgroundColor: theme.primary,
   },
-});
+  });
+}
