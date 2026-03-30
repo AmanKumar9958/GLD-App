@@ -7,12 +7,15 @@ import {
     serverTimestamp,
     setDoc,
 } from "@react-native-firebase/firestore";
+import type { User } from "../types/firestore";
 
 export type UserProfile = {
   uid: string;
   name: string;
   email?: string;
   photoURL?: string;
+  role?: "student" | "admin";
+  purchasedCourses?: string[];
 };
 
 function getUserCacheKey(uid: string): string {
@@ -36,11 +39,19 @@ function normalizeProfile(
 
   const email = raw.email as string | undefined;
 
+  const role = (raw.role as "student" | "admin" | undefined) ?? "student";
+
+  const purchasedCourses = Array.isArray(raw.purchasedCourses)
+    ? (raw.purchasedCourses as string[])
+    : [];
+
   return {
     uid,
     name: displayName,
     email,
     photoURL,
+    role,
+    purchasedCourses,
   };
 }
 
@@ -89,6 +100,8 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 
   if (profile.email) data.email = profile.email;
   if (profile.photoURL) data.photoURL = profile.photoURL;
+  if (profile.role) data.role = profile.role;
+  if (profile.purchasedCourses) data.purchasedCourses = profile.purchasedCourses;
 
   if (!existingDoc.exists()) {
     data.createdAt = serverTimestamp();
@@ -115,4 +128,17 @@ export async function getUserProfileWithCache(uid: string): Promise<{
     cached,
     fresh,
   };
+}
+
+/**
+ * Create or update a user document in the `users` collection.
+ * Uses `setDoc` with `merge: true` so it works for both initial creation and
+ * partial updates without overwriting unspecified fields.
+ */
+export async function upsertUser(
+  uid: string,
+  data: Partial<Omit<User, "uid" | "createdAt">>,
+): Promise<void> {
+  const ref = doc(collection(getFirestore(), "users"), uid);
+  await setDoc(ref, data, { merge: true });
 }
