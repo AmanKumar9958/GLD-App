@@ -17,169 +17,44 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { getPublishedCourses } from "../../services/courseService";
 
 type AllCourse = {
   id: string;
   title: string;
   mentor: string;
-  category: "English Spoken" | "Academics" | "Competitive Exams";
-  level: "Beginner" | "Intermediate" | "Advanced";
-  lessons: number;
-  duration: string;
-  rating: number;
-  learners: string;
-  price: string;
+  category: string;
+  price: number;
   image: string;
 };
 
-type CourseCategory = AllCourse["category"];
-type CategoryFilter = "All" | CourseCategory;
+type CategoryFilter = "All" | string;
 type PriceFilter = "All" | "Under $60" | "$60 - $70" | "Above $70";
 const COURSES_PAGE_SIZE = 4;
-const FILTER_LOAD_DELAY_MS = 450;
 const LOAD_MORE_DELAY_MS = 350;
 const DETAILS_SHEET_HIDDEN_Y = 520;
 
-const allCourses: AllCourse[] = [
-  {
-    id: "all-1",
-    title: "Fluent English in 30 Days",
-    mentor: "Riya Sharma",
-    category: "English Spoken",
-    level: "Beginner",
-    lessons: 36,
-    duration: "8h 40m",
-    rating: 4.8,
-    learners: "12.3k",
-    price: "$49",
-    image:
-      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-2",
-    title: "Public Speaking Confidence",
-    mentor: "Aman Verma",
-    category: "English Spoken",
-    level: "Intermediate",
-    lessons: 28,
-    duration: "6h 20m",
-    rating: 4.7,
-    learners: "8.7k",
-    price: "$59",
-    image:
-      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-3",
-    title: "Class 10 Science Masterclass",
-    mentor: "Neha Tiwari",
-    category: "Academics",
-    level: "Beginner",
-    lessons: 42,
-    duration: "11h 15m",
-    rating: 4.9,
-    learners: "19.4k",
-    price: "$69",
-    image:
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-4",
-    title: "Math Problem Solving Sprint",
-    mentor: "Sarthak Jain",
-    category: "Academics",
-    level: "Intermediate",
-    lessons: 31,
-    duration: "7h 50m",
-    rating: 4.6,
-    learners: "10.9k",
-    price: "$55",
-    image:
-      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-5",
-    title: "SSC CGL Complete Preparation",
-    mentor: "Rohit Yadav",
-    category: "Competitive Exams",
-    level: "Intermediate",
-    lessons: 54,
-    duration: "14h 10m",
-    rating: 4.8,
-    learners: "22.1k",
-    price: "$79",
-    image:
-      "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-6",
-    title: "Bank PO Quant + Reasoning",
-    mentor: "Priya Nair",
-    category: "Competitive Exams",
-    level: "Advanced",
-    lessons: 47,
-    duration: "12h 25m",
-    rating: 4.7,
-    learners: "15.8k",
-    price: "$74",
-    image:
-      "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-7",
-    title: "IELTS Speaking Booster",
-    mentor: "Nikita Rao",
-    category: "English Spoken",
-    level: "Advanced",
-    lessons: 24,
-    duration: "5h 55m",
-    rating: 4.8,
-    learners: "9.1k",
-    price: "$62",
-    image:
-      "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-8",
-    title: "Olympiad Math Challenge",
-    mentor: "Kavya Singh",
-    category: "Academics",
-    level: "Advanced",
-    lessons: 39,
-    duration: "9h 10m",
-    rating: 4.9,
-    learners: "7.6k",
-    price: "$68",
-    image:
-      "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?auto=format&fit=crop&w=900&q=80",
-  },
-];
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80";
 
 function getCategoryIcon(
-  category: AllCourse["category"],
+  category: string,
 ): React.ComponentProps<typeof Ionicons>["name"] {
-  if (category === "English Spoken") {
+  const lower = category.toLowerCase();
+
+  if (lower.includes("english") || lower.includes("spoken") || lower.includes("language")) {
     return "people-outline";
   }
 
-  if (category === "Academics") {
+  if (lower.includes("academic") || lower.includes("school") || lower.includes("science") || lower.includes("math")) {
     return "school-outline";
   }
 
   return "ribbon-outline";
 }
 
-function parsePrice(price: string): number {
-  return Number(price.replace(/[^0-9.]/g, ""));
-}
-
-function isCategoryFilter(value: string): value is CategoryFilter {
-  return (
-    value === "All" ||
-    value === "English Spoken" ||
-    value === "Academics" ||
-    value === "Competitive Exams"
-  );
+function formatPrice(price: number): string {
+  return `$${price}`;
 }
 
 function CourseSkeletonCard({
@@ -216,13 +91,11 @@ export default function AllCoursesScreen() {
         ? params.category
         : params.category?.[0];
 
-    if (rawCategory && isCategoryFilter(rawCategory)) {
-      return rawCategory;
-    }
-
-    return "All";
+    return rawCategory || "All";
   }, [params.category]);
 
+  const [courses, setCourses] = useState<AllCourse[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryFilter>(initialCategory);
   const [selectedPrice, setSelectedPrice] = useState<PriceFilter>("All");
@@ -247,19 +120,37 @@ export default function AllCoursesScreen() {
 
   useEffect(() => {
     setIsCoursesLoading(true);
-    const timer = setTimeout(() => {
-      setIsCoursesLoading(false);
-    }, FILTER_LOAD_DELAY_MS);
+    setFetchError(null);
+    getPublishedCourses()
+      .then((firestoreCourses) => {
+        setCourses(
+          firestoreCourses.map((c) => ({
+            id: c.id,
+            title: c.title,
+            mentor: c.instructorName,
+            category: c.category,
+            price: c.price,
+            image: c.thumbnailUrl || FALLBACK_IMAGE,
+          })),
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to load courses:", err);
+        setFetchError("Failed to load courses. Please try again.");
+      })
+      .finally(() => {
+        setIsCoursesLoading(false);
+      });
+  }, []);
 
-    return () => clearTimeout(timer);
-  }, [selectedCategory, selectedPrice]);
-
-  const categoryFilters: CategoryFilter[] = [
-    "All",
-    "English Spoken",
-    "Academics",
-    "Competitive Exams",
-  ];
+  const categoryFilters = useMemo<CategoryFilter[]>(() => {
+    const set = new Set(courses.map((c) => c.category));
+    // Ensure the URL-param-selected category is always visible, even before data loads
+    if (selectedCategory !== "All") {
+      set.add(selectedCategory);
+    }
+    return ["All", ...[...set].sort()];
+  }, [courses, selectedCategory]);
 
   const priceFilters: PriceFilter[] = [
     "All",
@@ -269,24 +160,23 @@ export default function AllCoursesScreen() {
   ];
 
   const filteredCourses = useMemo(() => {
-    return allCourses.filter((course) => {
-      const numericPrice = parsePrice(course.price);
+    return courses.filter((course) => {
       const matchesCategory =
         selectedCategory === "All" || course.category === selectedCategory;
 
       let matchesPrice = true;
 
       if (selectedPrice === "Under $60") {
-        matchesPrice = numericPrice < 60;
+        matchesPrice = course.price < 60;
       } else if (selectedPrice === "$60 - $70") {
-        matchesPrice = numericPrice >= 60 && numericPrice <= 70;
+        matchesPrice = course.price >= 60 && course.price <= 70;
       } else if (selectedPrice === "Above $70") {
-        matchesPrice = numericPrice > 70;
+        matchesPrice = course.price > 70;
       }
 
       return matchesCategory && matchesPrice;
     });
-  }, [selectedCategory, selectedPrice]);
+  }, [courses, selectedCategory, selectedPrice]);
 
   const visibleCourses = useMemo(() => {
     return filteredCourses.slice(0, visibleCount);
@@ -462,7 +352,14 @@ export default function AllCoursesScreen() {
             ))
           : null}
 
-        {!isCoursesLoading && filteredCourses.length === 0 ? (
+        {!isCoursesLoading && fetchError ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Something went wrong</Text>
+            <Text style={styles.emptySubtitle}>{fetchError}</Text>
+          </View>
+        ) : null}
+
+        {!isCoursesLoading && !fetchError && filteredCourses.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No matching courses</Text>
             <Text style={styles.emptySubtitle}>
@@ -488,7 +385,7 @@ export default function AllCoursesScreen() {
                     <Text style={styles.courseTitle} numberOfLines={1}>
                       {course.title}
                     </Text>
-                    <Text style={styles.priceTag}>{course.price}</Text>
+                    <Text style={styles.priceTag}>{formatPrice(course.price)}</Text>
                   </View>
 
                   <Text style={styles.mentorText} numberOfLines={1}>
@@ -503,60 +400,6 @@ export default function AllCoursesScreen() {
                         color={colors.primary}
                       />
                       <Text style={styles.metaText}>{course.category}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="layers-outline"
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.metaText}>{course.level}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="book-outline"
-                        size={14}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={styles.secondaryMetaText}>
-                        {course.lessons} lessons
-                      </Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="time-outline"
-                        size={14}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={styles.secondaryMetaText}>
-                        {course.duration}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="star-outline"
-                        size={14}
-                        color={colors.warning}
-                      />
-                      <Text style={styles.secondaryMetaText}>
-                        {course.rating.toFixed(1)}
-                      </Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="people-outline"
-                        size={14}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={styles.secondaryMetaText}>
-                        {course.learners} learners
-                      </Text>
                     </View>
                   </View>
                 </View>
@@ -626,7 +469,7 @@ export default function AllCoursesScreen() {
                     {selectedCourse.title}
                   </Text>
                   <Text style={styles.detailsPrice}>
-                    {selectedCourse.price}
+                    {formatPrice(selectedCourse.price)}
                   </Text>
                 </View>
 
@@ -643,56 +486,6 @@ export default function AllCoursesScreen() {
                     />
                     <Text style={styles.detailsMetaText}>
                       {selectedCourse.category}
-                    </Text>
-                  </View>
-                  <View style={styles.detailsMetaItem}>
-                    <Ionicons
-                      name="layers-outline"
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.detailsMetaText}>
-                      {selectedCourse.level}
-                    </Text>
-                  </View>
-                  <View style={styles.detailsMetaItem}>
-                    <Ionicons
-                      name="book-outline"
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.detailsMetaText}>
-                      {selectedCourse.lessons} lessons
-                    </Text>
-                  </View>
-                  <View style={styles.detailsMetaItem}>
-                    <Ionicons
-                      name="time-outline"
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.detailsMetaText}>
-                      {selectedCourse.duration}
-                    </Text>
-                  </View>
-                  <View style={styles.detailsMetaItem}>
-                    <Ionicons
-                      name="star-outline"
-                      size={15}
-                      color={colors.warning}
-                    />
-                    <Text style={styles.detailsMetaText}>
-                      {selectedCourse.rating.toFixed(1)} rating
-                    </Text>
-                  </View>
-                  <View style={styles.detailsMetaItem}>
-                    <Ionicons
-                      name="people-outline"
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.detailsMetaText}>
-                      {selectedCourse.learners} learners
                     </Text>
                   </View>
                 </View>
