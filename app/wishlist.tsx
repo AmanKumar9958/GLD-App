@@ -112,7 +112,7 @@ function WishlistScreen() {
                     {course.lessons} lessons
                   </Text>
                 </View>
-                <View style={styles.metaItem}>
+                {/* <View style={styles.metaItem}>
                   <Ionicons
                     name="time-outline"
                     size={14}
@@ -121,7 +121,7 @@ function WishlistScreen() {
                   <Text style={styles.secondaryMetaText}>
                     {course.duration}
                   </Text>
-                </View>
+                </View> */}
               </View>
             </View>
 
@@ -273,7 +273,7 @@ const createStyles = (colors: AppThemeColors) =>
     },
     removeBtn: {
       position: "absolute",
-      top: 8,
+      top: 90,
       right: 8,
       width: 28,
       height: 28,

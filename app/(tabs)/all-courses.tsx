@@ -4,11 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,8 +15,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
-import { useWishlist } from "../../context/WishlistContext";
-import { getPublishedCourses } from "../../services/courseService";
+import {
+  type WishlistCourse,
+  useWishlist,
+} from "../../context/WishlistContext";
+import {
+  getModules,
+  getPublishedCourses,
+  subscribeToPublishedCourses,
+} from "../../services/courseService";
 
 type AllCourse = {
   id: string;
@@ -29,10 +35,9 @@ type AllCourse = {
 };
 
 type CategoryFilter = "All" | string;
-type PriceFilter = "All" | "Under $60" | "$60 - $70" | "Above $70";
+type PriceFilter = "All" | "Under Rs. 60" | "Rs. 60 - Rs. 70" | "Above Rs. 70";
 const COURSES_PAGE_SIZE = 4;
 const LOAD_MORE_DELAY_MS = 350;
-const DETAILS_SHEET_HIDDEN_Y = 520;
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80";
@@ -42,11 +47,20 @@ function getCategoryIcon(
 ): React.ComponentProps<typeof Ionicons>["name"] {
   const lower = category.toLowerCase();
 
-  if (lower.includes("english") || lower.includes("spoken") || lower.includes("language")) {
+  if (
+    lower.includes("english") ||
+    lower.includes("spoken") ||
+    lower.includes("language")
+  ) {
     return "people-outline";
   }
 
-  if (lower.includes("academic") || lower.includes("school") || lower.includes("science") || lower.includes("math")) {
+  if (
+    lower.includes("academic") ||
+    lower.includes("school") ||
+    lower.includes("science") ||
+    lower.includes("math")
+  ) {
     return "school-outline";
   }
 
@@ -54,7 +68,25 @@ function getCategoryIcon(
 }
 
 function formatPrice(price: number): string {
-  return `$${price}`;
+  return `Rs. ${price}`;
+}
+
+function mapToWishlistCategory(category: string): WishlistCourse["category"] {
+  const lower = category.toLowerCase();
+
+  if (lower.includes("english") || lower.includes("spoken") || lower === "jb") {
+    return "English Spoken";
+  }
+
+  if (
+    lower.includes("academic") ||
+    lower.includes("school") ||
+    lower.includes("science")
+  ) {
+    return "Academics";
+  }
+
+  return "Competitive Exams";
 }
 
 function CourseSkeletonCard({
@@ -101,14 +133,42 @@ export default function AllCoursesScreen() {
   const [selectedPrice, setSelectedPrice] = useState<PriceFilter>("All");
   const [showFilters, setShowFilters] = useState(false);
   const [visibleCount, setVisibleCount] = useState(COURSES_PAGE_SIZE);
-  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [moduleCountByCourseId, setModuleCountByCourseId] = useState<
+    Record<string, number>
+  >({});
+  const [isModulePopupVisible, setIsModulePopupVisible] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<AllCourse | null>(null);
-  const [isDetailsVisible, setIsDetailsVisible] = useState(false);
-  const detailsSlideY = useState(
-    () => new Animated.Value(DETAILS_SHEET_HIDDEN_Y),
-  )[0];
-  const detailsBackdropOpacity = useState(() => new Animated.Value(0))[0];
+  const [selectedCourseModules, setSelectedCourseModules] = useState<string[]>(
+    [],
+  );
+  const [isModulesLoading, setIsModulesLoading] = useState(false);
+  const [modulesError, setModulesError] = useState<string | null>(null);
+  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  const loadModuleCounts = async (courseIds: string[]) => {
+    const statsEntries = await Promise.all(
+      courseIds.map(async (courseId) => {
+        try {
+          const modules = await getModules(courseId);
+          return [courseId, modules.length] as const;
+        } catch {
+          return [courseId, 0] as const;
+        }
+      }),
+    );
+
+    setModuleCountByCourseId((previous) => {
+      const next = { ...previous };
+
+      for (const [courseId, count] of statsEntries) {
+        next[courseId] = count;
+      }
+
+      return next;
+    });
+  };
 
   useEffect(() => {
     setSelectedCategory(initialCategory);
@@ -121,26 +181,33 @@ export default function AllCoursesScreen() {
   useEffect(() => {
     setIsCoursesLoading(true);
     setFetchError(null);
-    getPublishedCourses()
-      .then((firestoreCourses) => {
-        setCourses(
-          firestoreCourses.map((c) => ({
-            id: c.id,
-            title: c.title,
-            mentor: c.instructorName,
-            category: c.category,
-            price: c.price,
-            image: c.thumbnailUrl || FALLBACK_IMAGE,
-          })),
-        );
-      })
-      .catch((err) => {
+
+    const unsubscribe = subscribeToPublishedCourses(
+      (firestoreCourses) => {
+        const mappedCourses = firestoreCourses.map((c) => ({
+          id: c.id,
+          title: c.title,
+          mentor: c.instructorName,
+          category: c.category,
+          price: c.price,
+          image: c.thumbnailUrl || FALLBACK_IMAGE,
+        }));
+
+        setCourses(mappedCourses);
+        void loadModuleCounts(mappedCourses.map((course) => course.id));
+        setFetchError(null);
+        setIsCoursesLoading(false);
+      },
+      (err) => {
         console.error("Failed to load courses:", err);
         setFetchError("Failed to load courses. Please try again.");
-      })
-      .finally(() => {
         setIsCoursesLoading(false);
-      });
+      },
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const categoryFilters = useMemo<CategoryFilter[]>(() => {
@@ -154,9 +221,9 @@ export default function AllCoursesScreen() {
 
   const priceFilters: PriceFilter[] = [
     "All",
-    "Under $60",
-    "$60 - $70",
-    "Above $70",
+    "Under Rs. 60",
+    "Rs. 60 - Rs. 70",
+    "Above Rs. 70",
   ];
 
   const filteredCourses = useMemo(() => {
@@ -166,11 +233,11 @@ export default function AllCoursesScreen() {
 
       let matchesPrice = true;
 
-      if (selectedPrice === "Under $60") {
+      if (selectedPrice === "Under Rs. 60") {
         matchesPrice = course.price < 60;
-      } else if (selectedPrice === "$60 - $70") {
+      } else if (selectedPrice === "Rs. 60 - Rs. 70") {
         matchesPrice = course.price >= 60 && course.price <= 70;
-      } else if (selectedPrice === "Above $70") {
+      } else if (selectedPrice === "Above Rs. 70") {
         matchesPrice = course.price > 70;
       }
 
@@ -184,57 +251,29 @@ export default function AllCoursesScreen() {
 
   const hasMoreCourses = visibleCount < filteredCourses.length;
 
-  const handleShowMore = () => {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setVisibleCount((previous) => previous + COURSES_PAGE_SIZE);
-      setIsLoadingMore(false);
-    }, LOAD_MORE_DELAY_MS);
-  };
-
-  const openCourseDetails = (course: AllCourse) => {
+  const openModulesPopup = async (course: AllCourse) => {
     setSelectedCourse(course);
-    setIsDetailsVisible(true);
-    detailsSlideY.setValue(DETAILS_SHEET_HIDDEN_Y);
-    detailsBackdropOpacity.setValue(0);
+    setSelectedCourseModules([]);
+    setModulesError(null);
+    setIsModulePopupVisible(true);
+    setIsModulesLoading(true);
 
-    Animated.parallel([
-      Animated.spring(detailsSlideY, {
-        toValue: 0,
-        damping: 17,
-        stiffness: 180,
-        mass: 0.9,
-        useNativeDriver: true,
-      }),
-      Animated.timing(detailsBackdropOpacity, {
-        toValue: 1,
-        duration: 220,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    try {
+      const modules = await getModules(course.id);
+      setSelectedCourseModules(modules.map((module) => module.title));
+    } catch (err) {
+      console.error("Failed to load modules:", err);
+      setModulesError("Failed to load modules. Please try again.");
+    } finally {
+      setIsModulesLoading(false);
+    }
   };
 
-  const closeCourseDetails = () => {
-    Animated.parallel([
-      Animated.timing(detailsSlideY, {
-        toValue: DETAILS_SHEET_HIDDEN_Y,
-        duration: 230,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(detailsBackdropOpacity, {
-        toValue: 0,
-        duration: 190,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) {
-        setIsDetailsVisible(false);
-        setSelectedCourse(null);
-      }
-    });
+  const closeModulesPopup = () => {
+    setIsModulePopupVisible(false);
+    setSelectedCourse(null);
+    setSelectedCourseModules([]);
+    setModulesError(null);
   };
 
   const handleBuyNow = () => {
@@ -253,12 +292,59 @@ export default function AllCoursesScreen() {
       return;
     }
 
-    toggleWishlist(selectedCourse);
+    toggleWishlist({
+      id: selectedCourse.id,
+      title: selectedCourse.title,
+      mentor: selectedCourse.mentor,
+      category: mapToWishlistCategory(selectedCourse.category),
+      level: "Beginner",
+      lessons: moduleCountByCourseId[selectedCourse.id] ?? 0,
+      duration: "--",
+      rating: 4.5,
+      learners: "--",
+      price: formatPrice(selectedCourse.price),
+      image: selectedCourse.image,
+    });
   };
 
   const isSelectedCourseWishlisted = selectedCourse
     ? isInWishlist(selectedCourse.id)
     : false;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      const firestoreCourses = await getPublishedCourses();
+
+      setCourses(
+        firestoreCourses.map((c) => ({
+          id: c.id,
+          title: c.title,
+          mentor: c.instructorName,
+          category: c.category,
+          price: c.price,
+          image: c.thumbnailUrl || FALLBACK_IMAGE,
+        })),
+      );
+
+      void loadModuleCounts(firestoreCourses.map((course) => course.id));
+      setFetchError(null);
+    } catch (err) {
+      console.error("Failed to refresh courses:", err);
+      setFetchError("Failed to refresh courses. Please try again.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleShowMore = () => {
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setVisibleCount((previous) => previous + COURSES_PAGE_SIZE);
+      setIsLoadingMore(false);
+    }, LOAD_MORE_DELAY_MS);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -287,6 +373,15 @@ export default function AllCoursesScreen() {
         style={styles.screen}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
       >
         {showFilters ? (
           <View style={styles.filtersCard}>
@@ -373,7 +468,7 @@ export default function AllCoursesScreen() {
               <Pressable
                 key={course.id}
                 style={styles.courseCard}
-                onPress={() => openCourseDetails(course)}
+                onPress={() => void openModulesPopup(course)}
               >
                 <Image
                   source={{ uri: course.image }}
@@ -385,7 +480,9 @@ export default function AllCoursesScreen() {
                     <Text style={styles.courseTitle} numberOfLines={1}>
                       {course.title}
                     </Text>
-                    <Text style={styles.priceTag}>{formatPrice(course.price)}</Text>
+                    <Text style={styles.priceTag}>
+                      {formatPrice(course.price)}
+                    </Text>
                   </View>
 
                   <Text style={styles.mentorText} numberOfLines={1}>
@@ -400,6 +497,17 @@ export default function AllCoursesScreen() {
                         color={colors.primary}
                       />
                       <Text style={styles.metaText}>{course.category}</Text>
+                    </View>
+
+                    <View style={styles.metaItem}>
+                      <Ionicons
+                        name="layers-outline"
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.secondaryMetaText}>
+                        {moduleCountByCourseId[course.id] ?? 0} modules
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -434,72 +542,81 @@ export default function AllCoursesScreen() {
 
       <Modal
         transparent
-        visible={isDetailsVisible}
-        animationType="none"
-        onRequestClose={closeCourseDetails}
+        animationType="fade"
+        visible={isModulePopupVisible}
+        onRequestClose={closeModulesPopup}
       >
         <View style={styles.modalRoot}>
-          <Animated.View
-            style={[styles.modalBackdrop, { opacity: detailsBackdropOpacity }]}
-          >
-            <Pressable
-              style={styles.modalBackdropPressable}
-              onPress={closeCourseDetails}
-            />
-          </Animated.View>
+          <Pressable
+            style={styles.modalBackdropPressable}
+            onPress={closeModulesPopup}
+          />
 
-          <Animated.View
-            style={[
-              styles.detailsSheet,
-              {
-                transform: [{ translateY: detailsSlideY }],
-              },
-            ]}
-          >
-            {selectedCourse ? (
+          <View style={styles.modulePopupCard}>
+            <View style={styles.modulePopupHeaderRow}>
+              <Text style={styles.modulePopupTitle}>Course Modules</Text>
+              <Pressable onPress={closeModulesPopup} hitSlop={8}>
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modulePopupCourseLabel}>
+              Course: {selectedCourse?.title || "-"}
+            </Text>
+
+            {isModulesLoading ? (
+              <View style={styles.modulePopupLoadingWrap}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null}
+
+            {!isModulesLoading && modulesError ? (
+              <Text style={styles.modulePopupErrorText}>{modulesError}</Text>
+            ) : null}
+
+            {!isModulesLoading && !modulesError ? (
               <>
-                <View style={styles.detailsHandle} />
-                <Image
-                  source={{ uri: selectedCourse.image }}
-                  style={styles.detailsImage}
-                />
+                <Text style={styles.modulePopupSubheading}>Modules</Text>
 
-                <View style={styles.detailsTitleRow}>
-                  <Text style={styles.detailsTitle}>
-                    {selectedCourse.title}
+                {selectedCourseModules.length === 0 ? (
+                  <Text style={styles.modulePopupEmptyText}>
+                    No modules available for this course.
                   </Text>
-                  <Text style={styles.detailsPrice}>
-                    {formatPrice(selectedCourse.price)}
-                  </Text>
-                </View>
+                ) : (
+                  <ScrollView
+                    style={styles.modulePopupList}
+                    contentContainerStyle={styles.modulePopupListContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {selectedCourseModules.map((moduleName, index) => (
+                      <View
+                        key={`${moduleName}-${index}`}
+                        style={styles.modulePopupItem}
+                      >
+                        <Text style={styles.modulePopupItemIndex}>
+                          {index + 1}.
+                        </Text>
+                        <Text style={styles.modulePopupItemText}>
+                          {moduleName}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
 
-                <Text style={styles.detailsMentor}>
-                  by {selectedCourse.mentor}
-                </Text>
-
-                <View style={styles.detailsMetaGrid}>
-                  <View style={styles.detailsMetaItem}>
-                    <Ionicons
-                      name={getCategoryIcon(selectedCourse.category)}
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.detailsMetaText}>
-                      {selectedCourse.category}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailsActionsRow}>
-                  <Pressable style={styles.buyNowButton} onPress={handleBuyNow}>
-                    <Text style={styles.buyNowButtonText}>Buy Now</Text>
+                <View style={styles.modulePopupActionsRow}>
+                  <Pressable
+                    style={styles.modulePopupBuyButton}
+                    onPress={handleBuyNow}
+                  >
+                    <Text style={styles.modulePopupBuyButtonText}>Buy Now</Text>
                   </Pressable>
 
                   <Pressable
                     style={[
-                      styles.wishlistIconButton,
+                      styles.modulePopupWishlistButton,
                       isSelectedCourseWishlisted &&
-                        styles.wishlistIconButtonActive,
+                        styles.modulePopupWishlistButtonActive,
                     ]}
                     onPress={handleToggleWishlist}
                   >
@@ -518,7 +635,7 @@ export default function AllCoursesScreen() {
                 </View>
               </>
             ) : null}
-          </Animated.View>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -753,112 +870,124 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
     },
     modalRoot: {
       flex: 1,
-      justifyContent: "flex-end",
-    },
-    modalBackdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: colors.overlay,
+      justifyContent: "center",
+      paddingHorizontal: 18,
     },
     modalBackdropPressable: {
+      ...StyleSheet.absoluteFillObject,
       flex: 1,
+      backgroundColor: isDark
+        ? "rgba(2, 8, 20, 0.78)"
+        : "rgba(10, 26, 56, 0.58)",
     },
-    detailsSheet: {
+    modulePopupCard: {
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      paddingHorizontal: 16,
-      paddingTop: 10,
-      paddingBottom: 22,
-      gap: 10,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      maxHeight: "72%",
     },
-    detailsHandle: {
-      alignSelf: "center",
-      width: 46,
-      height: 5,
-      borderRadius: 999,
-      backgroundColor: colors.border,
-      marginBottom: 4,
-    },
-    detailsImage: {
-      width: "100%",
-      height: 180,
-      borderRadius: 14,
-      backgroundColor: colors.border,
-    },
-    detailsTitleRow: {
+    modulePopupHeaderRow: {
       flexDirection: "row",
-      alignItems: "flex-start",
+      alignItems: "center",
       justifyContent: "space-between",
-      gap: 10,
-      marginTop: 2,
+      marginBottom: 10,
     },
-    detailsTitle: {
-      flex: 1,
-      fontSize: 18,
-      color: colors.textPrimary,
+    modulePopupTitle: {
+      fontSize: 17,
       fontWeight: "800",
+      color: colors.textPrimary,
     },
-    detailsPrice: {
+    modulePopupCourseLabel: {
       fontSize: 13,
-      color: isDark ? "#0B1220" : colors.white,
+      color: colors.textPrimary,
       fontWeight: "700",
-      backgroundColor: isDark ? "#C7D4FF" : colors.primary,
-      borderRadius: 9,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      marginBottom: 8,
     },
-    detailsMentor: {
-      fontSize: 13,
+    modulePopupSubheading: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "700",
+      marginBottom: 8,
+    },
+    modulePopupLoadingWrap: {
+      alignItems: "center",
+      paddingVertical: 18,
+    },
+    modulePopupErrorText: {
+      fontSize: 12,
+      color: colors.danger,
+      fontWeight: "600",
+      paddingVertical: 8,
+    },
+    modulePopupEmptyText: {
+      fontSize: 12,
       color: colors.textSecondary,
       fontWeight: "600",
-      marginTop: -2,
+      paddingVertical: 8,
     },
-    detailsMetaGrid: {
-      marginTop: 2,
+    modulePopupList: {
+      maxHeight: 250,
+    },
+    modulePopupListContent: {
+      paddingBottom: 4,
       gap: 8,
     },
-    detailsMetaItem: {
+    modulePopupItem: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 7,
+      gap: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceAlt,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
     },
-    detailsMetaText: {
+    modulePopupItemIndex: {
+      width: 22,
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "700",
+    },
+    modulePopupItemText: {
+      flex: 1,
       fontSize: 13,
       color: colors.textPrimary,
       fontWeight: "600",
     },
-    detailsActionsRow: {
-      marginTop: 4,
+    modulePopupActionsRow: {
+      marginTop: 10,
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
     },
-    buyNowButton: {
+    modulePopupBuyButton: {
       flex: 1,
-      marginTop: 4,
-      backgroundColor: colors.primary,
       borderRadius: 12,
+      backgroundColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 12,
+      paddingVertical: 11,
     },
-    buyNowButtonText: {
+    modulePopupBuyButtonText: {
       color: colors.white,
       fontSize: 14,
       fontWeight: "700",
     },
-    wishlistIconButton: {
-      marginTop: 4,
-      width: 48,
-      height: 48,
+    modulePopupWishlistButton: {
+      width: 46,
+      height: 46,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.primary,
-      backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
+      backgroundColor: colors.surface,
     },
-    wishlistIconButtonActive: {
+    modulePopupWishlistButtonActive: {
       backgroundColor: colors.primary,
     },
   });

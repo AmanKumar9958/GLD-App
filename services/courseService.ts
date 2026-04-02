@@ -14,10 +14,12 @@ import {
     getDoc,
     getDocs,
     getFirestore,
+    onSnapshot,
     orderBy,
     query,
     serverTimestamp,
     setDoc,
+    where,
 } from "@react-native-firebase/firestore";
 import type {
     Course,
@@ -50,6 +52,13 @@ function videosCol(courseId: string, moduleId: string) {
   );
 }
 
+function mapCourseSnapshotToCourse(
+  d: FirebaseFirestoreTypes.QueryDocumentSnapshot,
+): Course {
+  const data = d.data() as Omit<Course, "id">;
+  return { ...data, id: d.id };
+}
+
 // ---------------------------------------------------------------------------
 // Courses
 // ---------------------------------------------------------------------------
@@ -58,18 +67,38 @@ function videosCol(courseId: string, moduleId: string) {
  * Fetch all published courses ordered by creation date (newest first).
  */
 export async function getPublishedCourses(): Promise<Course[]> {
-  const q = query(
-    coursesCol(),
-    orderBy("createdAt", "desc"),
-  );
+  const q = query(coursesCol(), where("isPublished", "==", true));
   const snap = await getDocs(q);
 
-  return snap.docs
-    .map((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-      const data = d.data() as Omit<Course, "id">;
-      return { ...data, id: d.id } as Course;
-    })
-    .filter((c: Course) => c.isPublished);
+  return snap.docs.map((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+    mapCourseSnapshotToCourse(d),
+  );
+}
+
+/**
+ * Subscribe to all published courses and receive live updates.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToPublishedCourses(
+  onData: (courses: Course[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  const q = query(coursesCol(), where("isPublished", "==", true));
+
+  return onSnapshot(
+    q,
+    (snap: FirebaseFirestoreTypes.QuerySnapshot) => {
+      const courses = snap.docs.map(
+        (d: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+          mapCourseSnapshotToCourse(d),
+      );
+
+      onData(courses);
+    },
+    (error) => {
+      onError?.(error as Error);
+    },
+  );
 }
 
 /**
@@ -100,29 +129,36 @@ export async function getCourseWithModules(
     return null;
   }
 
-  const modulesQuery = query(modulesCol(courseId), orderBy("orderIndex", "asc"));
+  const modulesQuery = query(
+    modulesCol(courseId),
+    orderBy("orderIndex", "asc"),
+  );
   const modulesSnap = await getDocs(modulesQuery);
 
   const modules: ModuleWithVideos[] = await Promise.all(
-    modulesSnap.docs.map(async (mDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-      const moduleData = {
-        ...(mDoc.data() as Omit<Module, "id">),
-        id: mDoc.id,
-      } as Module;
+    modulesSnap.docs.map(
+      async (mDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+        const moduleData = {
+          ...(mDoc.data() as Omit<Module, "id">),
+          id: mDoc.id,
+        } as Module;
 
-      const videosQuery = query(
-        videosCol(courseId, mDoc.id),
-        orderBy("orderIndex", "asc"),
-      );
-      const videosSnap = await getDocs(videosQuery);
+        const videosQuery = query(
+          videosCol(courseId, mDoc.id),
+          orderBy("orderIndex", "asc"),
+        );
+        const videosSnap = await getDocs(videosQuery);
 
-      const videos: Video[] = videosSnap.docs.map((vDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
-        ...(vDoc.data() as Omit<Video, "id">),
-        id: vDoc.id,
-      }));
+        const videos: Video[] = videosSnap.docs.map(
+          (vDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
+            ...(vDoc.data() as Omit<Video, "id">),
+            id: vDoc.id,
+          }),
+        );
 
-      return { ...moduleData, videos };
-    }),
+        return { ...moduleData, videos };
+      },
+    ),
   );
 
   return { ...course, modules };
@@ -226,10 +262,7 @@ export async function getVideos(
   courseId: string,
   moduleId: string,
 ): Promise<Video[]> {
-  const q = query(
-    videosCol(courseId, moduleId),
-    orderBy("orderIndex", "asc"),
-  );
+  const q = query(videosCol(courseId, moduleId), orderBy("orderIndex", "asc"));
   const snap = await getDocs(q);
 
   return snap.docs.map((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({

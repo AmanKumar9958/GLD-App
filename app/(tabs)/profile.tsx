@@ -162,6 +162,9 @@ export default function ProfileScreen() {
     if (itemId === "my-courses") {
       router.push("/(tabs)/courses");
     }
+    if (itemId === "fav") {
+      router.push("/wishlist");
+    }
   };
 
   return (

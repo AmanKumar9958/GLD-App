@@ -2,31 +2,37 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import Animated, {
-  Easing,
-  interpolate,
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+    Easing,
+    interpolate,
+    interpolateColor,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useWishlist } from "../../context/WishlistContext";
 import {
-  UserProfile,
-  getUserProfileWithCache,
+    getModules,
+    subscribeToPublishedCourses,
+} from "../../services/courseService";
+import {
+    UserProfile,
+    getUserProfileWithCache,
 } from "../../services/userProfile";
+import type { Course as FirestoreCourse } from "../../types/firestore";
 
-type Course = {
+type HomeCourse = {
   id: string;
   title: string;
   mentor: string;
@@ -48,56 +54,9 @@ const categories: CategoryItem[] = [
   { id: "more", label: "More", icon: "grid-outline" },
 ];
 
-const popularCourses: Course[] = [
-  {
-    id: "course-1",
-    title: "Graphic Design Pro",
-    mentor: "Aadil Arif",
-    lessons: 32,
-    price: "$98.00",
-    image:
-      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "course-2",
-    title: "UX/UI Essentials",
-    mentor: "Buse Erhan",
-    lessons: 28,
-    price: "$75.00",
-    image:
-      "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=900&q=80",
-  },
-];
-
-const homeCoursesFromAllCourses: Course[] = [
-  {
-    id: "all-1",
-    title: "Fluent English in 30 Days",
-    mentor: "Riya Sharma",
-    lessons: 36,
-    price: "$49",
-    image:
-      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-3",
-    title: "Class 10 Science Masterclass",
-    mentor: "Neha Tiwari",
-    lessons: 42,
-    price: "$69",
-    image:
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "all-5",
-    title: "SSC CGL Complete Preparation",
-    mentor: "Rohit Yadav",
-    lessons: 54,
-    price: "$79",
-    image:
-      "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=900&q=80",
-  },
-];
+const HOME_SECTION_SIZE = 8;
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80";
 
 const defaultAvatar =
   "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=200&q=80";
@@ -129,12 +88,14 @@ function getIndiaGreeting(): string {
 function CourseCard({
   course,
   styles,
+  onPress,
 }: {
-  course: Course;
+  course: HomeCourse;
   styles: ReturnType<typeof createStyles>;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.courseCard}>
+    <Pressable style={styles.courseCard} onPress={onPress}>
       <Image source={{ uri: course.image }} style={styles.courseImage} />
       <View style={styles.courseMetaRow}>
         <Text style={styles.courseTitle} numberOfLines={1}>
@@ -146,7 +107,7 @@ function CourseCard({
         {course.mentor}
       </Text>
       <Text style={styles.courseSub}>{course.lessons} lessons</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -157,6 +118,12 @@ export default function HomeScreen() {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { wishlistCount } = useWishlist();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [recommendedCourses, setRecommendedCourses] = useState<HomeCourse[]>(
+    [],
+  );
+  const [popularCourses, setPopularCourses] = useState<HomeCourse[]>([]);
+  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
   const toggleProgress = useSharedValue(isDark ? 1 : 0);
 
@@ -256,6 +223,96 @@ export default function HomeScreen() {
   const displayPhoto = useMemo(() => {
     return profile?.photoURL || currentUser?.photoURL || defaultAvatar;
   }, [profile?.photoURL, currentUser?.photoURL]);
+
+  useEffect(() => {
+    let active = true;
+    let snapshotSeq = 0;
+
+    const mapHomeCourses = async (
+      source: FirestoreCourse[],
+    ): Promise<HomeCourse[]> => {
+      const selected = source.slice(0, HOME_SECTION_SIZE);
+
+      return Promise.all(
+        selected.map(async (course) => {
+          let lessons = 0;
+
+          try {
+            const modules = await getModules(course.id);
+            lessons = modules.length;
+          } catch {
+            lessons = 0;
+          }
+
+          return {
+            id: course.id,
+            title: course.title,
+            mentor: course.instructorName || "Instructor",
+            lessons,
+            price: `Rs. ${course.price}`,
+            image: course.thumbnailUrl || FALLBACK_IMAGE,
+          };
+        }),
+      );
+    };
+
+    const unsubscribe = subscribeToPublishedCourses(
+      (courses) => {
+        const currentSeq = snapshotSeq + 1;
+        snapshotSeq = currentSeq;
+
+        const byNewest = [...courses].sort((a, b) => {
+          const bSeconds = b.createdAt?.seconds || 0;
+          const aSeconds = a.createdAt?.seconds || 0;
+
+          if (bSeconds === aSeconds) {
+            return a.title.localeCompare(b.title);
+          }
+
+          return bSeconds - aSeconds;
+        });
+
+        const byPriceDesc = [...courses].sort((a, b) => b.price - a.price);
+
+        Promise.all([mapHomeCourses(byNewest), mapHomeCourses(byPriceDesc)])
+          .then(([recommended, popular]) => {
+            if (!active || currentSeq !== snapshotSeq) {
+              return;
+            }
+
+            setRecommendedCourses(recommended);
+            setPopularCourses(popular);
+            setCoursesError(null);
+            setIsCoursesLoading(false);
+          })
+          .catch((error) => {
+            console.error("Failed to map home courses:", error);
+
+            if (!active || currentSeq !== snapshotSeq) {
+              return;
+            }
+
+            setCoursesError("Failed to load courses.");
+            setIsCoursesLoading(false);
+          });
+      },
+      (error) => {
+        console.error("Failed to subscribe courses:", error);
+
+        if (!active) {
+          return;
+        }
+
+        setCoursesError("Failed to load courses.");
+        setIsCoursesLoading(false);
+      },
+    );
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     toggleProgress.value = withTiming(isDark ? 1 : 0, {
@@ -409,10 +466,25 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
         >
-          {homeCoursesFromAllCourses.map((course) => (
-            <CourseCard key={course.id} course={course} styles={styles} />
+          {recommendedCourses.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              styles={styles}
+              onPress={() => navigateToAllCourses()}
+            />
           ))}
         </ScrollView>
+
+        {isCoursesLoading ? (
+          <View style={styles.sectionStatusWrap}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : null}
+
+        {!isCoursesLoading && coursesError ? (
+          <Text style={styles.sectionStatusText}>{coursesError}</Text>
+        ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Popular Courses</Text>
@@ -427,7 +499,12 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         >
           {popularCourses.map((course) => (
-            <CourseCard key={course.id} course={course} styles={styles} />
+            <CourseCard
+              key={course.id}
+              course={course}
+              styles={styles}
+              onPress={() => navigateToAllCourses()}
+            />
           ))}
         </ScrollView>
       </ScrollView>
@@ -601,6 +678,18 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       paddingHorizontal: 16,
       paddingBottom: 12,
       gap: 12,
+    },
+    sectionStatusWrap: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+    },
+    sectionStatusText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.textSecondary,
+      paddingHorizontal: 16,
+      paddingBottom: 8,
     },
     courseCard: {
       width: 170,
