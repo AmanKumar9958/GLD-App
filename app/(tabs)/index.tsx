@@ -2,33 +2,33 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import Animated, {
-    Easing,
-    interpolate,
-    interpolateColor,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  Easing,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useWishlist } from "../../context/WishlistContext";
 import {
-    getModules,
-    subscribeToPublishedCourses,
+  getModules,
+  subscribeToPublishedCourses,
 } from "../../services/courseService";
 import {
-    UserProfile,
-    getUserProfileWithCache,
+  UserProfile,
+  getUserProfileWithCache,
 } from "../../services/userProfile";
 import type { Course as FirestoreCourse } from "../../types/firestore";
 
@@ -55,6 +55,7 @@ const categories: CategoryItem[] = [
 ];
 
 const HOME_SECTION_SIZE = 8;
+const HEADER_ICONS_PANEL_WIDTH = 124;
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80";
 
@@ -117,6 +118,8 @@ export default function HomeScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { wishlistCount } = useWishlist();
+  const hasUnreadNotifications = false;
+  const showHeaderAlertDot = wishlistCount > 0 || hasUnreadNotifications;
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [recommendedCourses, setRecommendedCourses] = useState<HomeCourse[]>(
     [],
@@ -124,8 +127,10 @@ export default function HomeScreen() {
   const [popularCourses, setPopularCourses] = useState<HomeCourse[]>([]);
   const [isCoursesLoading, setIsCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [areHeaderIconsOpen, setAreHeaderIconsOpen] = useState(false);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
   const toggleProgress = useSharedValue(isDark ? 1 : 0);
+  const headerIconsProgress = useSharedValue(0);
 
   const navigateToAllCourses = useCallback(
     (category?: CategoryItem["label"]) => {
@@ -347,12 +352,46 @@ export default function HomeScreen() {
     ),
   }));
 
+  const closeHeaderActionsIfOpen = useCallback(() => {
+    setAreHeaderIconsOpen((previous) => (previous ? false : previous));
+  }, []);
+
+  useEffect(() => {
+    headerIconsProgress.value = withTiming(areHeaderIconsOpen ? 1 : 0, {
+      duration: 320,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+  }, [areHeaderIconsOpen, headerIconsProgress]);
+
+  const headerIconsPanelAnimatedStyle = useAnimatedStyle(() => ({
+    width: interpolate(
+      headerIconsProgress.value,
+      [0, 1],
+      [0, HEADER_ICONS_PANEL_WIDTH],
+    ),
+    opacity: interpolate(headerIconsProgress.value, [0, 0.2, 1], [0, 0.3, 1]),
+    transform: [
+      {
+        translateX: interpolate(headerIconsProgress.value, [0, 1], [14, 0]),
+      },
+    ],
+  }));
+
+  const headerArrowAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        rotate: `${interpolate(headerIconsProgress.value, [0, 1], [0, 180])}deg`,
+      },
+    ],
+  }));
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        onTouchStart={closeHeaderActionsIfOpen}
       >
         <View style={styles.headerRow}>
           <View style={styles.profileRow}>
@@ -367,51 +406,80 @@ export default function HomeScreen() {
               <Text style={styles.name}>{displayName}</Text>
             </View>
           </View>
-          <View style={styles.headerIcons}>
+          <View style={styles.headerActionsRow}>
+            <Animated.View
+              style={[styles.headerIconsPanel, headerIconsPanelAnimatedStyle]}
+            >
+              <View
+                style={styles.headerIcons}
+                pointerEvents={areHeaderIconsOpen ? "auto" : "none"}
+              >
+                <Pressable
+                  style={styles.wishlistTrigger}
+                  onPress={() => router.push("/wishlist")}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name="heart-outline"
+                    size={20}
+                    color={colors.primary}
+                    style={styles.headerIcon}
+                  />
+                  {wishlistCount > 0 ? (
+                    <View style={styles.wishlistBadge}>
+                      <Text style={styles.wishlistBadgeText}>
+                        {wishlistCount > 99 ? "99+" : wishlistCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  style={styles.themeSwitch}
+                  onPress={toggleTheme}
+                  hitSlop={8}
+                >
+                  <Animated.View
+                    style={[styles.themeTrack, toggleTrackAnimatedStyle]}
+                  />
+                  <Animated.View
+                    style={[styles.themeThumb, toggleThumbAnimatedStyle]}
+                  />
+                  <Animated.View style={toggleIconAnimatedStyle}>
+                    <Ionicons
+                      name={isDark ? "sunny-outline" : "moon-outline"}
+                      size={14}
+                      color={colors.primary}
+                    />
+                  </Animated.View>
+                </Pressable>
+
+                <Pressable style={styles.notificationTrigger} hitSlop={8}>
+                  <Ionicons
+                    name="notifications-outline"
+                    size={20}
+                    color={colors.primary}
+                    style={styles.headerIcon}
+                  />
+                </Pressable>
+              </View>
+            </Animated.View>
+
             <Pressable
-              style={styles.wishlistTrigger}
-              onPress={() => router.push("/wishlist")}
+              style={styles.headerToggleButton}
+              onPress={() => setAreHeaderIconsOpen((previous) => !previous)}
               hitSlop={8}
             >
-              <Ionicons
-                name="heart-outline"
-                size={20}
-                color={colors.primary}
-                style={styles.headerIcon}
-              />
-              {wishlistCount > 0 ? (
-                <View style={styles.wishlistBadge}>
-                  <Text style={styles.wishlistBadgeText}>
-                    {wishlistCount > 99 ? "99+" : wishlistCount}
-                  </Text>
-                </View>
+              {showHeaderAlertDot ? (
+                <View style={styles.headerAlertDot} />
               ) : null}
-            </Pressable>
-            <Pressable
-              style={styles.themeSwitch}
-              onPress={toggleTheme}
-              hitSlop={8}
-            >
-              <Animated.View
-                style={[styles.themeTrack, toggleTrackAnimatedStyle]}
-              />
-              <Animated.View
-                style={[styles.themeThumb, toggleThumbAnimatedStyle]}
-              />
-              <Animated.View style={toggleIconAnimatedStyle}>
+              <Animated.View style={headerArrowAnimatedStyle}>
                 <Ionicons
-                  name={isDark ? "sunny-outline" : "moon-outline"}
-                  size={14}
+                  name="chevron-back"
+                  size={18}
                   color={colors.primary}
                 />
               </Animated.View>
             </Pressable>
-            <Ionicons
-              name="notifications-outline"
-              size={20}
-              color={colors.primary}
-              style={styles.headerIcon}
-            />
           </View>
         </View>
 
@@ -564,25 +632,52 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       color: colors.textPrimary,
       fontWeight: "700",
     },
+    headerActionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    headerIconsPanel: {
+      overflow: "hidden",
+    },
     headerIcons: {
       flexDirection: "row",
       gap: 14,
       alignItems: "center",
+      width: HEADER_ICONS_PANEL_WIDTH,
+      paddingVertical: 4,
+    },
+    headerToggleButton: {
+      position: "relative",
+      width: 28,
+      height: 28,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
     },
     headerIcon: {
       opacity: 0.95,
     },
-    wishlistTrigger: {
-      position: "relative",
+    notificationTrigger: {
       width: 22,
       height: 22,
       alignItems: "center",
       justifyContent: "center",
     },
+    wishlistTrigger: {
+      position: "relative",
+      width: 28,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     wishlistBadge: {
       position: "absolute",
-      top: -7,
-      right: -9,
+      top: -2,
+      right: -3,
       minWidth: 16,
       height: 16,
       borderRadius: 999,
@@ -596,6 +691,18 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       fontSize: 9,
       fontWeight: "800",
       lineHeight: 11,
+    },
+    headerAlertDot: {
+      position: "absolute",
+      top: -1,
+      right: -1,
+      width: 8,
+      height: 8,
+      borderRadius: 999,
+      backgroundColor: colors.danger,
+      borderWidth: 1,
+      borderColor: colors.surface,
+      zIndex: 2,
     },
     banner: {
       marginHorizontal: 16,

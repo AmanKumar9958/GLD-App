@@ -1,17 +1,110 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Redirect } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
 import { AppThemeColors, useTheme } from "../context/ThemeContext";
 import { signInWithGoogle } from "../services/auth";
 
+const educationQuotes = [
+  "Success is the sum of small efforts repeated every day.",
+  "The future belongs to those who prepare for it today.",
+  "Learning never exhausts the mind, it empowers it.",
+  "Your discipline today builds your dream tomorrow.",
+];
+
+const isLinearGradientAvailable =
+  UIManager.getViewManagerConfig?.("ExpoLinearGradient") != null;
+
+function AppGradient({
+  colors,
+  style,
+  children,
+}: {
+  colors: readonly [string, string, ...string[]];
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  if (isLinearGradientAvailable) {
+    return (
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={style}
+      >
+        {children}
+      </LinearGradient>
+    );
+  }
+
+  return (
+    <View style={[style, { backgroundColor: colors[0] }]}>{children}</View>
+  );
+}
+
 export default function Index() {
   const { isAuthResolved, isAuthenticated } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+  const quoteSlideProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      Animated.timing(quoteSlideProgress, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentQuoteIndex(
+          (previous) => (previous + 1) % educationQuotes.length,
+        );
+
+        quoteSlideProgress.setValue(-1);
+
+        Animated.timing(quoteSlideProgress, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 3600);
+
+    return () => clearInterval(interval);
+  }, [quoteSlideProgress]);
+
+  const quoteAnimatedStyle = {
+    opacity: quoteSlideProgress.interpolate({
+      inputRange: [-1, 0, 1],
+      outputRange: [0, 1, 0],
+    }),
+    transform: [
+      {
+        translateX: quoteSlideProgress.interpolate({
+          inputRange: [-1, 0, 1],
+          outputRange: [24, 0, -24],
+        }),
+      },
+    ],
+  };
 
   const handleGoogleSignIn = async () => {
     try {
@@ -45,29 +138,43 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.card}>
-          <View style={styles.skipRow}>
-            <Text style={styles.skipText}>Skip</Text>
-          </View>
+      <AppGradient
+        colors={["#EAF2FF", "#FFF3F8", "#E9EEFF"]}
+        style={styles.container}
+      >
+        <View style={styles.heroWrap}>
+          <AppGradient
+            colors={["#4A86FF", "#F0437A"]}
+            style={styles.heroGradientBubble}
+          >
+            <View style={styles.heroIconRow}>
+              <View style={styles.heroIconPill}>
+                <Ionicons name="school-outline" size={24} color="#1B3D92" />
+              </View>
+              <View style={styles.heroIconPill}>
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={24}
+                  color="#A0204C"
+                />
+              </View>
+            </View>
+          </AppGradient>
 
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=900&q=80",
-            }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
+          <Text style={styles.title} numberOfLines={2}>Welcome, learner!</Text>
+          <Text style={styles.subtitle}>
+            Sign in and keep building your future.
+          </Text>
+        </View>
 
-          <View style={styles.content}>
-            <Text style={styles.title}>
-              Choosing the right online{"\n"}
-              course <Text style={styles.highlight}>for growth</Text>
-            </Text>
-            <Text style={styles.subtitle}>
-              Lorem Ipsum is simply dummy text of{"\n"}
-              the Lorem Ipsum has been the industry&apos;s
-            </Text>
+        <View style={styles.quotesCard}>
+          <Text style={styles.quoteLabel}>Daily Motivation</Text>
+          <View style={styles.quoteViewport}>
+            <Animated.View style={quoteAnimatedStyle}>
+              <Text style={styles.quoteText}>
+                {educationQuotes[currentQuoteIndex]}
+              </Text>
+            </Animated.View>
           </View>
         </View>
 
@@ -76,16 +183,19 @@ export default function Index() {
           onPress={handleGoogleSignIn}
           disabled={isSigningIn}
         >
-          <View style={styles.googleIconWrap}>
-            <Text style={styles.googleIconText}>G</Text>
-          </View>
-          {isSigningIn ? (
-            <Spinner size={22} color={colors.primary} />
-          ) : (
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
-          )}
+          <AppGradient
+            colors={["#2D68ED", "#E43D64"]}
+            style={styles.googleButtonGradient}
+          >
+            <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+            {isSigningIn ? (
+              <Spinner size={22} color="#FFFFFF" />
+            ) : (
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            )}
+          </AppGradient>
         </Pressable>
-      </View>
+      </AppGradient>
     </SafeAreaView>
   );
 }
@@ -98,94 +208,107 @@ const createStyles = (colors: AppThemeColors) =>
     },
     container: {
       flex: 1,
-      justifyContent: "center",
+      paddingHorizontal: 22,
+      paddingTop: 18,
+      paddingBottom: 26,
       alignItems: "center",
-      paddingHorizontal: 20,
-      gap: 20,
+      justifyContent: "center"
     },
+    
     centeredSpinner: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
     },
-    card: {
+    heroWrap: {
       width: "100%",
-      maxWidth: 360,
-      borderRadius: 24,
-      backgroundColor: colors.surface,
-      overflow: "hidden",
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
+      alignItems: "center",
+      paddingVertical: 24,
+      gap: 12,
+    },
+    heroGradientBubble: {
+      width: 182,
+      height: 182,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#1F469F",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.22,
+      shadowRadius: 16,
       elevation: 5,
     },
-    skipRow: {
-      position: "absolute",
-      top: 16,
-      right: 16,
-      zIndex: 2,
+    heroIconRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
     },
-    skipText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: colors.textSecondary,
-    },
-    heroImage: {
-      width: "100%",
-      height: 320,
-      backgroundColor: colors.border,
-    },
-    content: {
-      paddingHorizontal: 18,
-      paddingTop: 16,
-      paddingBottom: 20,
+    heroIconPill: {
+      width: 62,
+      height: 62,
+      borderRadius: 18,
+      backgroundColor: "rgba(255,255,255,0.86)",
+      alignItems: "center",
+      justifyContent: "center",
     },
     title: {
-      fontSize: 30,
+      fontSize: 32,
       lineHeight: 38,
       fontWeight: "800",
-      color: colors.textPrimary,
-      marginBottom: 10,
-    },
-    highlight: {
-      color: colors.primary,
+      color: "#102A66",
+      marginTop: 8,
     },
     subtitle: {
-      fontSize: 14,
+      fontSize: 15,
       lineHeight: 20,
-      color: colors.textSecondary,
-      fontWeight: "500",
+      color: "#3D4E7C",
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    quotesCard: {
+      backgroundColor: "rgba(255,255,255,0.78)",
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: "rgba(84,121,220,0.18)",
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      marginTop: 10,
+      marginBottom: 16,
+    },
+    quoteLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#5E73A5",
+      marginBottom: 8,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+    },
+    quoteViewport: {
+      minHeight: 44,
+      justifyContent: "center",
+    },
+    quoteText: {
+      fontSize: 14,
+      lineHeight: 18,
+      color: "#344470",
+      fontWeight: "600",
+      textAlign: "center",
     },
     googleButton: {
       width: "100%",
-      maxWidth: 360,
+      borderRadius: 14,
+      overflow: "hidden",
+    },
+    googleButtonGradient: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 10,
-      backgroundColor: colors.surface,
-      borderRadius: 14,
+      gap: 12,
       paddingVertical: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    googleIconWrap: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: colors.background,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    googleIconText: {
-      fontSize: 14,
-      fontWeight: "800",
-      color: colors.primary,
     },
     googleButtonText: {
       fontSize: 16,
       fontWeight: "700",
-      color: colors.primary,
+      color: "#FFFFFF",
     },
   });
