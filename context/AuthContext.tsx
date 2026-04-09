@@ -1,19 +1,16 @@
-import {
-    FirebaseAuthTypes,
-    getAuth,
-    onAuthStateChanged,
-} from "@react-native-firebase/auth";
 import React, {
-    createContext,
-    ReactNode,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase } from "../services/supabase";
 
 type AuthContextValue = {
-  user: FirebaseAuthTypes.User | null;
+  user: User | null;
   isAuthenticated: boolean;
   isAuthResolved: boolean;
 };
@@ -21,18 +18,30 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
 
   useEffect(() => {
-    const auth = getAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
+    // Check initial session
+    const checkInitialSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data.session?.user ?? null);
       setIsAuthResolved(true);
-    });
+    };
 
-    return unsubscribe;
+    checkInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setIsAuthResolved(true);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo(
@@ -41,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       isAuthResolved,
     }),
-    [user, isAuthResolved],
+    [user, isAuthResolved]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

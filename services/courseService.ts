@@ -1,62 +1,25 @@
 /**
- * Firestore CRUD helpers for the `courses` collection and its
- * `modules` / `videos` sub-collections.
- *
- * Uses @react-native-firebase/firestore (compatible with React Native / Expo).
+ * Supabase CRUD helpers for the `courses`, `modules`, and `videos` tables.
  */
 
-import type { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
+import { supabase } from "./supabase";
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    getFirestore,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
-    where,
-} from "@react-native-firebase/firestore";
-import type {
-    Course,
-    CourseWithModules,
-    Module,
-    ModuleWithVideos,
-    Video,
-} from "../types/firestore";
+  DatabaseCourse,
+  DatabaseModule,
+  DatabaseVideo,
+  CourseWithModules,
+  ModuleWithVideos,
+} from "../types/supabase";
 
 // ---------------------------------------------------------------------------
-// Path helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
-function coursesCol() {
-  return collection(getFirestore(), "courses");
-}
-
-function modulesCol(courseId: string) {
-  return collection(getFirestore(), "courses", courseId, "modules");
-}
-
-function videosCol(courseId: string, moduleId: string) {
-  return collection(
-    getFirestore(),
-    "courses",
-    courseId,
-    "modules",
-    moduleId,
-    "videos",
-  );
-}
-
-function mapCourseSnapshotToCourse(
-  d: FirebaseFirestoreTypes.QueryDocumentSnapshot,
-): Course {
-  const data = d.data() as Omit<Course, "id">;
-  return { ...data, id: d.id };
+function mapDbCourseToUi(c: DatabaseCourse) {
+  return {
+    ...c,
+    // Add any UI-specific field mappings if necessary
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -66,13 +29,15 @@ function mapCourseSnapshotToCourse(
 /**
  * Fetch all published courses ordered by creation date (newest first).
  */
-export async function getPublishedCourses(): Promise<Course[]> {
-  const q = query(coursesCol(), where("isPublished", "==", true));
-  const snap = await getDocs(q);
+export async function getPublishedCourses(): Promise<DatabaseCourse[]> {
+  const { data, error } = await supabase
+    .from("courses")
+    .select("*")
+    .eq("is_published", true)
+    .order("created_at", { ascending: false });
 
-  return snap.docs.map((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
-    mapCourseSnapshotToCourse(d),
-  );
+  if (error) throw error;
+  return data || [];
 }
 
 /**
@@ -80,229 +45,224 @@ export async function getPublishedCourses(): Promise<Course[]> {
  * Returns an unsubscribe function.
  */
 export function subscribeToPublishedCourses(
-  onData: (courses: Course[]) => void,
-  onError?: (error: Error) => void,
+  onData: (courses: DatabaseCourse[]) => void,
+  onError?: (error: Error) => void
 ): () => void {
-  const q = query(coursesCol(), where("isPublished", "==", true));
+  // Initial fetch
+  getPublishedCourses().then(onData).catch(onError);
 
-  return onSnapshot(
-    q,
-    (snap: FirebaseFirestoreTypes.QuerySnapshot) => {
-      const courses = snap.docs.map(
-        (d: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
-          mapCourseSnapshotToCourse(d),
-      );
+  // Subscribe to changes
+  const channel = supabase
+    .channel("public:courses")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "courses" },
+      async () => {
+        try {
+          const courses = await getPublishedCourses();
+          onData(courses);
+        } catch (err) {
+          onError?.(err as Error);
+        }
+      }
+    )
+    .subscribe();
 
-      onData(courses);
-    },
-    (error) => {
-      onError?.(error as Error);
-    },
-  );
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 /**
- * Fetch a single course by its Firestore document ID.
- * Returns `null` when no document exists.
+ * Fetch a single course by its ID.
  */
-export async function getCourseById(courseId: string): Promise<Course | null> {
-  const ref = doc(coursesCol(), courseId);
-  const snap = await getDoc(ref);
+export async function getCourseById(
+  courseId: string
+): Promise<DatabaseCourse | null> {
+  const { data, error } = await supabase
+    .from("courses")
+    .select("*")
+    .eq("id", courseId)
+    .single();
 
-  if (!snap.exists) {
-    return null;
+  if (error) {
+    if (error.code === "PGRST116") return null; // Not found
+    throw error;
   }
 
-  return { ...(snap.data() as Omit<Course, "id">), id: snap.id };
+  return data;
 }
 
 /**
  * Fetch a course together with all its modules and videos in one call.
- * Modules and videos are sorted by `orderIndex` ascending.
+ * Uses Supabase's relational embedding.
  */
 export async function getCourseWithModules(
-  courseId: string,
+  courseId: string
 ): Promise<CourseWithModules | null> {
-  const course = await getCourseById(courseId);
+  const { data, error } = await supabase
+    .from("courses")
+    .select(`
+      *,
+      modules:modules(
+        *,
+        videos:videos(*)
+      )
+    `)
+    .eq("id", courseId)
+    .order("order_index", { foreignTable: "modules", ascending: true })
+    .order("order_index", { foreignTable: "modules.videos", ascending: true })
+    .single();
 
-  if (!course) {
-    return null;
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
   }
 
-  const modulesQuery = query(
-    modulesCol(courseId),
-    orderBy("orderIndex", "asc"),
-  );
-  const modulesSnap = await getDocs(modulesQuery);
-
-  const modules: ModuleWithVideos[] = await Promise.all(
-    modulesSnap.docs.map(
-      async (mDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-        const moduleData = {
-          ...(mDoc.data() as Omit<Module, "id">),
-          id: mDoc.id,
-        } as Module;
-
-        const videosQuery = query(
-          videosCol(courseId, mDoc.id),
-          orderBy("orderIndex", "asc"),
-        );
-        const videosSnap = await getDocs(videosQuery);
-
-        const videos: Video[] = videosSnap.docs.map(
-          (vDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
-            ...(vDoc.data() as Omit<Video, "id">),
-            id: vDoc.id,
-          }),
-        );
-
-        return { ...moduleData, videos };
-      },
-    ),
-  );
-
-  return { ...course, modules };
+  return data as CourseWithModules;
 }
 
 /**
- * Create a new course document. Returns the new document's ID.
+ * Create a new course record.
  */
 export async function createCourse(
-  data: Omit<Course, "id" | "createdAt">,
+  data: Omit<DatabaseCourse, "id" | "created_at" | "updated_at">
 ): Promise<string> {
-  const ref = await addDoc(coursesCol(), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from("courses")
+    .insert([data])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
 /**
- * Update an existing course document (partial update).
+ * Update an existing course record.
  */
 export async function updateCourse(
   courseId: string,
-  data: Partial<Omit<Course, "id" | "createdAt">>,
+  data: Partial<Omit<DatabaseCourse, "id" | "created_at" | "updated_at">>
 ): Promise<void> {
-  const ref = doc(coursesCol(), courseId);
-  await setDoc(ref, data, { merge: true });
+  const { error } = await supabase
+    .from("courses")
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq("id", courseId);
+
+  if (error) throw error;
 }
 
 /**
- * Delete a course document.
- * Note: sub-collections (modules / videos) must be deleted separately or via
- * a Cloud Function; the client SDK does not cascade-delete sub-collections.
+ * Delete a course record. Primary key CASCADE handles modules/videos.
  */
 export async function deleteCourse(courseId: string): Promise<void> {
-  await deleteDoc(doc(coursesCol(), courseId));
+  const { error } = await supabase.from("courses").delete().eq("id", courseId);
+  if (error) throw error;
 }
 
 // ---------------------------------------------------------------------------
 // Modules
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch all modules for a course, sorted by `orderIndex`.
- */
-export async function getModules(courseId: string): Promise<Module[]> {
-  const q = query(modulesCol(courseId), orderBy("orderIndex", "asc"));
-  const snap = await getDocs(q);
+export async function getModules(courseId: string): Promise<DatabaseModule[]> {
+  const { data, error } = await supabase
+    .from("modules")
+    .select("*")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true });
 
-  return snap.docs.map((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
-    ...(d.data() as Omit<Module, "id">),
-    id: d.id,
-  }));
+  if (error) throw error;
+  return data || [];
 }
 
-/**
- * Create a new module inside a course. Returns the new module's ID.
- */
 export async function createModule(
   courseId: string,
-  data: Omit<Module, "id" | "createdAt">,
+  data: Omit<DatabaseModule, "id" | "course_id" | "created_at">
 ): Promise<string> {
-  const ref = await addDoc(modulesCol(courseId), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from("modules")
+    .insert([{ ...data, course_id: courseId }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
-/**
- * Update an existing module (partial update).
- */
 export async function updateModule(
   courseId: string,
   moduleId: string,
-  data: Partial<Omit<Module, "id" | "createdAt">>,
+  data: Partial<Omit<DatabaseModule, "id" | "course_id" | "created_at">>
 ): Promise<void> {
-  const ref = doc(modulesCol(courseId), moduleId);
-  await setDoc(ref, data, { merge: true });
+  const { error } = await supabase
+    .from("modules")
+    .update(data)
+    .eq("id", moduleId);
+
+  if (error) throw error;
 }
 
-/**
- * Delete a module document.
- * Videos inside it must be deleted separately or via a Cloud Function.
- */
 export async function deleteModule(
   courseId: string,
-  moduleId: string,
+  moduleId: string
 ): Promise<void> {
-  await deleteDoc(doc(modulesCol(courseId), moduleId));
+  const { error } = await supabase.from("modules").delete().eq("id", moduleId);
+  if (error) throw error;
 }
 
 // ---------------------------------------------------------------------------
 // Videos
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch all videos inside a module, sorted by `orderIndex`.
- */
 export async function getVideos(
   courseId: string,
-  moduleId: string,
-): Promise<Video[]> {
-  const q = query(videosCol(courseId, moduleId), orderBy("orderIndex", "asc"));
-  const snap = await getDocs(q);
+  moduleId: string
+): Promise<DatabaseVideo[]> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select("*")
+    .eq("module_id", moduleId)
+    .order("order_index", { ascending: true });
 
-  return snap.docs.map((d: FirebaseFirestoreTypes.QueryDocumentSnapshot) => ({
-    ...(d.data() as Omit<Video, "id">),
-    id: d.id,
-  }));
+  if (error) throw error;
+  return data || [];
 }
 
-/**
- * Create a new video inside a module. Returns the new video's ID.
- */
 export async function createVideo(
   courseId: string,
   moduleId: string,
-  data: Omit<Video, "id">,
+  data: Omit<DatabaseVideo, "id" | "module_id">
 ): Promise<string> {
-  const ref = await addDoc(videosCol(courseId, moduleId), data);
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from("videos")
+    .insert([{ ...data, module_id: moduleId }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
-/**
- * Update an existing video (partial update).
- */
 export async function updateVideo(
   courseId: string,
   moduleId: string,
   videoId: string,
-  data: Partial<Omit<Video, "id">>,
+  data: Partial<Omit<DatabaseVideo, "id" | "module_id">>
 ): Promise<void> {
-  const ref = doc(videosCol(courseId, moduleId), videoId);
-  await setDoc(ref, data, { merge: true });
+  const { error } = await supabase
+    .from("videos")
+    .update(data)
+    .eq("id", videoId);
+
+  if (error) throw error;
 }
 
-/**
- * Delete a video document.
- */
 export async function deleteVideo(
   courseId: string,
   moduleId: string,
-  videoId: string,
+  videoId: string
 ): Promise<void> {
-  await deleteDoc(doc(videosCol(courseId, moduleId), videoId));
+  const { error } = await supabase.from("videos").delete().eq("id", videoId);
+  if (error) throw error;
 }
