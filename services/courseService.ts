@@ -52,12 +52,15 @@ export function subscribeToPublishedCourses(
   getPublishedCourses().then(onData).catch(onError);
 
   // Subscribe to changes
+  // Use a unique channel name to avoid "callbacks after subscribe" errors if multiple components subscribe
+  const channelId = `published-courses-${Date.now()}`;
   const channel = supabase
-    .channel("public:courses")
+    .channel(channelId)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "courses" },
-      async () => {
+      async (payload) => {
+        // payload can be used for granular updates, but for now we re-fetch to keep it simple and consistent with initial load
         try {
           const courses = await getPublishedCourses();
           onData(courses);
@@ -66,7 +69,11 @@ export function subscribeToPublishedCourses(
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR") {
+        onError?.(new Error("Failed to connect to real-time channel."));
+      }
+    });
 
   return () => {
     supabase.removeChannel(channel);

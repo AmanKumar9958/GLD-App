@@ -8,24 +8,41 @@ import React, {
 } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "../services/supabase";
+import { fetchUserProfile, UserProfile } from "../services/userProfile";
 
 type AuthContextValue = {
   user: User | null;
+  profile: UserProfile | null;
   isAuthenticated: boolean;
   isAuthResolved: boolean;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
+
+  const refreshProfile = async (uid: string) => {
+    try {
+      const fresh = await fetchUserProfile(uid);
+      setProfile(fresh);
+    } catch (error) {
+      console.error("Error refreshing profile in AuthContext:", error);
+    }
+  };
 
   useEffect(() => {
     // Check initial session
     const checkInitialSession = async () => {
       const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user ?? null);
+      const currentUser = data.session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        await refreshProfile(currentUser.id);
+      }
       setIsAuthResolved(true);
     };
 
@@ -33,8 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
+      async (_event, session) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await refreshProfile(currentUser.id);
+        } else {
+          setProfile(null);
+        }
         setIsAuthResolved(true);
       }
     );
@@ -47,10 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      profile,
       isAuthenticated: Boolean(user),
       isAuthResolved,
+      refreshProfile: () => (user ? refreshProfile(user.id) : Promise.resolve()),
     }),
-    [user, isAuthResolved]
+    [user, profile, isAuthResolved]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

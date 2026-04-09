@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import Animated, {
   Easing,
   interpolate,
@@ -27,10 +28,9 @@ import {
   subscribeToPublishedCourses,
 } from "../../services/courseService";
 import {
-  UserProfile,
   getUserProfileWithCache,
 } from "../../services/userProfile";
-import type { Course as FirestoreCourse } from "../../types/firestore";
+import { DatabaseCourse } from "../../types/supabase";
 
 type HomeCourse = {
   id: string;
@@ -114,13 +114,13 @@ function CourseCard({
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile, isAuthResolved: isAuthLoading } = useAuth();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { wishlistCount } = useWishlist();
   const hasUnreadNotifications = false;
   const showHeaderAlertDot = wishlistCount > 0 || hasUnreadNotifications;
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  
   const [recommendedCourses, setRecommendedCourses] = useState<HomeCourse[]>(
     [],
   );
@@ -147,65 +147,6 @@ export default function HomeScreen() {
     [router],
   );
 
-  useEffect(() => {
-    let active = true;
-
-    const loadProfile = async () => {
-      if (!currentUser?.uid) {
-        return;
-      }
-
-      try {
-        const { cached, fresh } = await getUserProfileWithCache(
-          currentUser.uid,
-        );
-
-        if (!active) {
-          return;
-        }
-
-        if (cached) {
-          setProfile(cached);
-        }
-
-        if (fresh) {
-          setProfile(fresh);
-        }
-
-        if (!cached && !fresh) {
-          setProfile({
-            uid: currentUser.uid,
-            name: currentUser.displayName || "User",
-            email: currentUser.email || undefined,
-            photoURL: currentUser.photoURL || undefined,
-          });
-        }
-      } catch {
-        if (!active) {
-          return;
-        }
-
-        setProfile({
-          uid: currentUser.uid,
-          name: currentUser.displayName || "User",
-          email: currentUser.email || undefined,
-          photoURL: currentUser.photoURL || undefined,
-        });
-      }
-    };
-
-    loadProfile();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    currentUser?.uid,
-    currentUser?.displayName,
-    currentUser?.email,
-    currentUser?.photoURL,
-  ]);
-
   useFocusEffect(
     useCallback(() => {
       setGreeting(getIndiaGreeting());
@@ -222,19 +163,19 @@ export default function HomeScreen() {
   }, []);
 
   const displayName = useMemo(() => {
-    return profile?.name || currentUser?.displayName || "User";
-  }, [profile?.name, currentUser?.displayName]);
+    return profile?.name || currentUser?.email?.split("@")[0] || "User";
+  }, [profile?.name, currentUser?.email]);
 
   const displayPhoto = useMemo(() => {
-    return profile?.photoURL || currentUser?.photoURL || defaultAvatar;
-  }, [profile?.photoURL, currentUser?.photoURL]);
+    return profile?.photoURL || defaultAvatar;
+  }, [profile?.photoURL]);
 
   useEffect(() => {
     let active = true;
     let snapshotSeq = 0;
 
     const mapHomeCourses = async (
-      source: FirestoreCourse[],
+      source: DatabaseCourse[],
     ): Promise<HomeCourse[]> => {
       const selected = source.slice(0, HOME_SECTION_SIZE);
 
@@ -252,10 +193,10 @@ export default function HomeScreen() {
           return {
             id: course.id,
             title: course.title,
-            mentor: course.instructorName || "Instructor",
+            mentor: course.instructor_name || "Instructor",
             lessons,
             price: `Rs. ${course.price}`,
-            image: course.thumbnailUrl || FALLBACK_IMAGE,
+            image: course.thumbnail_url || FALLBACK_IMAGE,
           };
         }),
       );
@@ -267,14 +208,14 @@ export default function HomeScreen() {
         snapshotSeq = currentSeq;
 
         const byNewest = [...courses].sort((a, b) => {
-          const bSeconds = b.createdAt?.seconds || 0;
-          const aSeconds = a.createdAt?.seconds || 0;
+          const bTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const aTime = b.created_at ? new Date(b.created_at).getTime() : 0;
 
-          if (bSeconds === aSeconds) {
+          if (bTime === aTime) {
             return a.title.localeCompare(b.title);
           }
 
-          return bSeconds - aSeconds;
+          return bTime - aTime;
         });
 
         const byPriceDesc = [...courses].sort((a, b) => b.price - a.price);
@@ -529,30 +470,44 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {recommendedCourses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              styles={styles}
-              onPress={() => navigateToAllCourses()}
-            />
-          ))}
-        </ScrollView>
-
         {isCoursesLoading ? (
           <View style={styles.sectionStatusWrap}>
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
-        ) : null}
-
-        {!isCoursesLoading && coursesError ? (
-          <Text style={styles.sectionStatusText}>{coursesError}</Text>
-        ) : null}
+        ) : coursesError ? (
+          <View style={styles.emptyStateContainer}>
+            <ExpoImage
+              source={require("../../assets/images/404-not-found.svg")}
+              style={styles.emptyStateImage}
+              contentFit="contain"
+            />
+            <Text style={styles.sectionStatusText}>{coursesError}</Text>
+          </View>
+        ) : recommendedCourses.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <ExpoImage
+              source={require("../../assets/images/empty-folder.svg")}
+              style={styles.emptyStateImage}
+              contentFit="contain"
+            />
+            <Text style={styles.sectionStatusText}>No recommended courses found.</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {recommendedCourses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                styles={styles}
+                onPress={() => navigateToAllCourses()}
+              />
+            ))}
+          </ScrollView>
+        )}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Popular Courses</Text>
@@ -561,20 +516,35 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {popularCourses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              styles={styles}
-              onPress={() => navigateToAllCourses()}
+        {isCoursesLoading ? (
+          <View style={styles.sectionStatusWrap}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : coursesError ? null : popularCourses.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <ExpoImage
+              source={require("../../assets/images/empty-folder.svg")}
+              style={styles.emptyStateImage}
+              contentFit="contain"
             />
-          ))}
-        </ScrollView>
+            <Text style={styles.sectionStatusText}>No popular courses found.</Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {popularCourses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                styles={styles}
+                onPress={() => navigateToAllCourses()}
+              />
+            ))}
+          </ScrollView>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -869,5 +839,15 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       height: 20,
       borderRadius: 999,
       backgroundColor: colors.surfaceAlt,
+    },
+    emptyStateContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 20,
+      gap: 12,
+    },
+    emptyStateImage: {
+      width: 120,
+      height: 120,
     },
   });

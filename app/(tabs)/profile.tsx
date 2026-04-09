@@ -42,12 +42,10 @@ const menuItems: ProfileMenuItem[] = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile, isAuthResolved: isAuthLoading } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
@@ -64,81 +62,17 @@ export default function ProfileScreen() {
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  useEffect(() => {
-    let active = true;
-
-    const loadProfile = async () => {
-      if (!currentUser?.uid) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const { cached, fresh } = await getUserProfileWithCache(
-          currentUser.uid,
-        );
-
-        if (!active) {
-          return;
-        }
-
-        if (cached) {
-          setProfile(cached);
-        }
-
-        if (fresh) {
-          setProfile(fresh);
-        }
-
-        if (!cached && !fresh) {
-          setProfile({
-            uid: currentUser.uid,
-            name: currentUser.displayName || "User",
-            email: currentUser.email || undefined,
-            photoURL: currentUser.photoURL || undefined,
-          });
-        }
-      } catch {
-        if (!active) {
-          return;
-        }
-
-        setProfile({
-          uid: currentUser.uid,
-          name: currentUser.displayName || "User",
-          email: currentUser.email || undefined,
-          photoURL: currentUser.photoURL || undefined,
-        });
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadProfile();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    currentUser?.uid,
-    currentUser?.displayName,
-    currentUser?.email,
-    currentUser?.photoURL,
-  ]);
-
   const displayName = useMemo(() => {
-    return profile?.name || currentUser?.displayName || "User";
-  }, [profile?.name, currentUser?.displayName]);
+    return profile?.name || currentUser?.user_metadata?.full_name || currentUser?.email?.split("@")[0] || "User";
+  }, [profile?.name, currentUser]);
 
   const displayEmail = useMemo(() => {
     return profile?.email || currentUser?.email || "No email found";
   }, [profile?.email, currentUser?.email]);
 
   const displayPhoto = useMemo(() => {
-    return profile?.photoURL || currentUser?.photoURL || defaultAvatar;
-  }, [profile?.photoURL, currentUser?.photoURL]);
+    return profile?.photoURL || currentUser?.user_metadata?.avatar_url || defaultAvatar;
+  }, [profile?.photoURL, currentUser]);
 
   const confirmLogout = async () => {
     try {
@@ -180,12 +114,6 @@ export default function ProfileScreen() {
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.email}>{displayEmail}</Text>
           </View>
-
-          {isLoading ? (
-            <View style={styles.loaderWrap}>
-              <Spinner size={32} color={colors.primary} />
-            </View>
-          ) : null}
 
           <View style={styles.listCard}>
             {menuItems.map((item) => (
