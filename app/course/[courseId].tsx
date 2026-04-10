@@ -10,6 +10,7 @@ import {
     Text,
     View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import {
@@ -77,7 +78,7 @@ export default function CourseDetailsScreen() {
       setCourse({
         title: courseDoc.title,
         category: courseDoc.category,
-        mentor: courseDoc.instructorName,
+        mentor: courseDoc.instructor_name || "Instructor",
         price: courseDoc.price,
       });
 
@@ -201,6 +202,11 @@ export default function CourseDetailsScreen() {
 
         {!isLoading && error ? (
           <View style={styles.emptyState}>
+            <ExpoImage
+              source={require("../../assets/images/404-not-found.svg")}
+              style={styles.emptyImage}
+              contentFit="contain"
+            />
             <Text style={styles.emptyTitle}>Something went wrong</Text>
             <Text style={styles.emptySubtitle}>{error}</Text>
           </View>
@@ -208,6 +214,11 @@ export default function CourseDetailsScreen() {
 
         {!isLoading && !error && modules.length === 0 ? (
           <View style={styles.emptyState}>
+            <ExpoImage
+              source={require("../../assets/images/empty-folder.svg")}
+              style={styles.emptyImage}
+              contentFit="contain"
+            />
             <Text style={styles.emptyTitle}>No modules yet</Text>
             <Text style={styles.emptySubtitle}>
               This course does not have modules at the moment.
@@ -323,22 +334,29 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 20,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 32,
       alignItems: "center",
+      marginTop: 8,
+    },
+    emptyImage: {
+      width: 140,
+      height: 100,
+      marginBottom: 16,
     },
     emptyTitle: {
-      fontSize: 15,
+      fontSize: 16,
       color: colors.textPrimary,
-      fontWeight: "700",
-      marginBottom: 4,
+      fontWeight: "800",
+      marginBottom: 6,
     },
     emptySubtitle: {
-      fontSize: 12,
+      fontSize: 13,
       color: colors.textSecondary,
       textAlign: "center",
       fontWeight: "500",
+      lineHeight: 18,
     },
     moduleCard: {
       flexDirection: "row",

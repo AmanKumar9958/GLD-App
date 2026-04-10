@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import {
@@ -183,14 +184,14 @@ export default function AllCoursesScreen() {
     setFetchError(null);
 
     const unsubscribe = subscribeToPublishedCourses(
-      (firestoreCourses) => {
-        const mappedCourses = firestoreCourses.map((c) => ({
+      (dbCourses) => {
+        const mappedCourses = dbCourses.map((c) => ({
           id: c.id,
           title: c.title,
-          mentor: c.instructorName,
+          mentor: c.instructor_name,
           category: c.category,
           price: c.price,
-          image: c.thumbnailUrl || FALLBACK_IMAGE,
+          image: c.thumbnail_url || FALLBACK_IMAGE,
         }));
 
         setCourses(mappedCourses);
@@ -315,20 +316,20 @@ export default function AllCoursesScreen() {
     setIsRefreshing(true);
 
     try {
-      const firestoreCourses = await getPublishedCourses();
+      const dbCourses = await getPublishedCourses();
 
       setCourses(
-        firestoreCourses.map((c) => ({
+        dbCourses.map((c) => ({
           id: c.id,
           title: c.title,
-          mentor: c.instructorName,
+          mentor: c.instructor_name,
           category: c.category,
           price: c.price,
-          image: c.thumbnailUrl || FALLBACK_IMAGE,
+          image: c.thumbnail_url || FALLBACK_IMAGE,
         })),
       );
 
-      void loadModuleCounts(firestoreCourses.map((course) => course.id));
+      void loadModuleCounts(dbCourses.map((course) => course.id));
       setFetchError(null);
     } catch (err) {
       console.error("Failed to refresh courses:", err);
@@ -449,6 +450,11 @@ export default function AllCoursesScreen() {
 
         {!isCoursesLoading && fetchError ? (
           <View style={styles.emptyState}>
+            <ExpoImage
+              source={require("../../assets/images/404-not-found.svg")}
+              style={styles.emptyImage}
+              contentFit="contain"
+            />
             <Text style={styles.emptyTitle}>Something went wrong</Text>
             <Text style={styles.emptySubtitle}>{fetchError}</Text>
           </View>
@@ -456,6 +462,11 @@ export default function AllCoursesScreen() {
 
         {!isCoursesLoading && !fetchError && filteredCourses.length === 0 ? (
           <View style={styles.emptyState}>
+            <ExpoImage
+              source={require("../../assets/images/empty-folder.svg")}
+              style={styles.emptyImage}
+              contentFit="contain"
+            />
             <Text style={styles.emptyTitle}>No matching courses</Text>
             <Text style={styles.emptySubtitle}>
               Try changing category or price filters.
@@ -729,22 +740,29 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 20,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 32,
       alignItems: "center",
+      marginTop: 12,
+    },
+    emptyImage: {
+      width: 140,
+      height: 100,
+      marginBottom: 16,
     },
     emptyTitle: {
-      fontSize: 15,
+      fontSize: 16,
       color: colors.textPrimary,
-      fontWeight: "700",
-      marginBottom: 4,
+      fontWeight: "800",
+      marginBottom: 6,
     },
     emptySubtitle: {
-      fontSize: 12,
+      fontSize: 13,
       color: colors.textSecondary,
       textAlign: "center",
       fontWeight: "500",
+      lineHeight: 18,
     },
     showMoreButton: {
       marginTop: 2,

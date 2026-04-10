@@ -9,6 +9,7 @@ import {
     Text,
     View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../context/ThemeContext";
 import { useWishlist, WishlistCourse } from "../context/WishlistContext";
@@ -54,10 +55,10 @@ function WishlistScreen() {
       >
         {wishlist.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons
-              name="heart-outline"
-              size={28}
-              color={colors.textSecondary}
+            <ExpoImage
+              source={require("../assets/images/empty-folder.svg")}
+              style={styles.emptyImage}
+              contentFit="contain"
             />
             <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
             <Text style={styles.emptySubtitle}>
@@ -186,22 +187,29 @@ const createStyles = (colors: AppThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 20,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 32,
       alignItems: "center",
-      gap: 6,
+      marginTop: 8,
+    },
+    emptyImage: {
+      width: 120,
+      height: 90,
+      marginBottom: 16,
     },
     emptyTitle: {
-      fontSize: 15,
+      fontSize: 16,
       color: colors.textPrimary,
-      fontWeight: "700",
+      fontWeight: "800",
+      marginBottom: 6,
     },
     emptySubtitle: {
-      fontSize: 12,
+      fontSize: 13,
       color: colors.textSecondary,
       textAlign: "center",
       fontWeight: "500",
+      lineHeight: 18,
     },
     courseCard: {
       flexDirection: "row",

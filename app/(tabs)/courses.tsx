@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
@@ -150,9 +151,14 @@ export default function CoursesScreen() {
 
         {!isLoading && filteredCourses.length === 0 ? (
           <View style={styles.emptyState}>
+            <ExpoImage
+              source={require("../../assets/images/empty-folder.svg")}
+              style={styles.emptyImage}
+              contentFit="contain"
+            />
             <Text style={styles.emptyTitle}>No courses found</Text>
             <Text style={styles.emptySubtitle}>
-              Your courses will appear here once added in Firestore.
+              Your courses will appear here once you enroll in them.
             </Text>
           </View>
         ) : null}
@@ -267,22 +273,29 @@ const createStyles = (colors: AppThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 18,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 32,
       alignItems: "center",
+      marginTop: 8,
+    },
+    emptyImage: {
+      width: 120,
+      height: 90,
+      marginBottom: 16,
     },
     emptyTitle: {
-      fontSize: 15,
+      fontSize: 16,
       color: colors.textPrimary,
-      fontWeight: "700",
-      marginBottom: 4,
+      fontWeight: "800",
+      marginBottom: 6,
     },
     emptySubtitle: {
-      fontSize: 12,
+      fontSize: 13,
       color: colors.textSecondary,
       textAlign: "center",
       fontWeight: "500",
+      lineHeight: 18,
     },
     courseRow: {
       flexDirection: "row",
