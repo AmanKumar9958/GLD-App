@@ -28,6 +28,9 @@ function getCategoryIcon(
   return "ribbon-outline";
 }
 
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=900&q=80";
+
 function WishlistScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -69,7 +72,12 @@ function WishlistScreen() {
 
         {wishlist.map((course) => (
           <View key={course.id} style={styles.courseCard}>
-            <Image source={{ uri: course.image }} style={styles.courseImage} />
+            <ExpoImage 
+              source={{ uri: course.image || FALLBACK_IMAGE }} 
+              style={styles.courseImage} 
+              contentFit="cover"
+              transition={200}
+            />
 
             <View style={styles.courseContent}>
               <View style={styles.titleRow}>
