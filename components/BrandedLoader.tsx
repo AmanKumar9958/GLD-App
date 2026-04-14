@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View, Text } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,6 +15,24 @@ export default function BrandedLoader() {
   
   // Create shared value for scaling
   const scale = useSharedValue(0.85);
+  const [progress, setProgress] = useState(1);
+
+  useEffect(() => {
+    const duration = 2500;
+    const intervalTime = duration / 100;
+    
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 1;
+      });
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Pulse animation: smoothly scale up and down continuously
@@ -41,6 +59,23 @@ export default function BrandedLoader() {
         style={[styles.logo, animatedStyle]}
         resizeMode="contain"
       />
+      
+      <View style={styles.progressContainer}>
+        <View style={[styles.track, { backgroundColor: colors.border }]}>
+          <View 
+            style={[
+              styles.fill, 
+              { 
+                backgroundColor: colors.primary, 
+                width: `${progress}%` 
+              }
+            ]} 
+          />
+        </View>
+        <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+          Loading... {progress}%
+        </Text>
+      </View>
     </View>
   );
 }
@@ -54,5 +89,26 @@ const styles = StyleSheet.create({
   logo: {
     width: 120,
     height: 120,
+    marginBottom: 40,
   },
+  progressContainer: {
+    width: '60%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  track: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  }
 });
