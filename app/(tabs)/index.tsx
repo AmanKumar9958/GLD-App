@@ -31,6 +31,7 @@ import {
   getUserProfileWithCache,
 } from "../../services/userProfile";
 import { DatabaseCourse } from "../../types/supabase";
+import Skeleton from "../../components/ui/Skeleton";
 
 type HomeCourse = {
   id: string;
@@ -84,6 +85,20 @@ function getIndiaGreeting(): string {
   }
 
   return "Good Night";
+}
+
+function HomeCourseSkeleton({ styles }: { styles: ReturnType<typeof createStyles> }) {
+  return (
+    <View style={styles.courseCard}>
+      <Skeleton width="100%" height={92} borderRadius={12} style={{ marginBottom: 8 }} />
+      <View style={styles.courseMetaRow}>
+        <Skeleton width="60%" height={16} borderRadius={4} />
+        <Skeleton width={40} height={16} borderRadius={8} />
+      </View>
+      <Skeleton width="80%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
+      <Skeleton width="50%" height={12} borderRadius={4} />
+    </View>
+  );
 }
 
 function CourseCard({
@@ -471,9 +486,15 @@ export default function HomeScreen() {
         </View>
 
         {isCoursesLoading ? (
-          <View style={styles.sectionStatusWrap}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {[1, 2, 3].map((key) => (
+              <HomeCourseSkeleton key={key} styles={styles} />
+            ))}
+          </ScrollView>
         ) : coursesError ? (
           <View style={styles.emptyStateContainer}>
             <ExpoImage
@@ -517,9 +538,15 @@ export default function HomeScreen() {
         </View>
 
         {isCoursesLoading ? (
-          <View style={styles.sectionStatusWrap}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {[1, 2, 3].map((key) => (
+              <HomeCourseSkeleton key={key} styles={styles} />
+            ))}
+          </ScrollView>
         ) : coursesError ? null : popularCourses.length === 0 ? (
           <View style={styles.emptyStateContainer}>
             <ExpoImage
