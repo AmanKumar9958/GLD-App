@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import BrandedLoader from "../components/BrandedLoader";
 
 SplashScreen.preventAutoHideAsync();
@@ -53,15 +53,17 @@ function RootNavigator() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: "slide_from_right",
-        contentStyle: {
-          backgroundColor: colors.background,
-        },
-      }}
-    />
+    <Suspense fallback={<BrandedLoader />}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "slide_from_right",
+          contentStyle: {
+            backgroundColor: colors.background,
+          },
+        }}
+      />
+    </Suspense>
   );
 }
 
