@@ -4,11 +4,28 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, Suspense } from "react";
 import BrandedLoader from "../components/BrandedLoader";
 
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      cacheTime: 1000 * 60 * 60 * 24, // 24 hours
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+});
 
 export default function RootLayout() {
   return (
@@ -30,7 +47,12 @@ function AppShell() {
       />
       <AuthProvider>
         <WishlistProvider>
-          <RootNavigator />
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{ persister: asyncStoragePersister }}
+          >
+            <RootNavigator />
+          </PersistQueryClientProvider>
         </WishlistProvider>
       </AuthProvider>
     </>
