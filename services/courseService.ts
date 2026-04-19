@@ -71,7 +71,7 @@ export function subscribeToPublishedCourses(
     )
     .subscribe((status) => {
       if (status === "CHANNEL_ERROR") {
-        onError?.(new Error("Failed to connect to real-time channel."));
+        console.warn("Supabase realtime channel error. Live updates may not work.");
       }
     });
 

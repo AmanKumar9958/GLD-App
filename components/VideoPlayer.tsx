@@ -24,10 +24,14 @@ export default function VideoPlayer({ bunnyVideoId }: VideoPlayerProps) {
   }
 
   const streamUrl = `https://${pullZone}/${bunnyVideoId}/playlist.m3u8`;
+  let validReferer = referer.startsWith("http") ? referer : `https://${referer}`;
+  if (!validReferer.endsWith("/")) {
+    validReferer += "/";
+  }
 
   const player = useVideoPlayer({ 
       uri: streamUrl, 
-      headers: { Referer: referer } 
+      headers: { "Referer": validReferer } 
     }, (player) => {
     player.play();
   });

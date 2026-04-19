@@ -1,11 +1,11 @@
 import React from "react";
 import { StyleProp, ViewStyle } from "react-native";
 // @ts-ignore
-import { createShimmerPlaceholder } from "react-native-shimmer-placeholder";
+import { createShimmerPlaceHolder } from "expo-shimmer-placeholder";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 
-const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient);
+const ShimmerPlaceholder = createShimmerPlaceHolder(LinearGradient);
 
 interface SkeletonProps {
   width?: number | string;
