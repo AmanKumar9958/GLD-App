@@ -41,6 +41,47 @@ export async function getPublishedCourses(): Promise<DatabaseCourse[]> {
 }
 
 /**
+ * Fetch a paginated list of published courses.
+ */
+export async function getPaginatedCourses({ 
+  pageParam = 0,
+  category = 'All',
+  priceFilter = 'All'
+}): Promise<{ data: DatabaseCourse[], nextPage: number | null }> {
+  const limit = 6;
+  const from = pageParam * limit;
+  const to = from + limit - 1;
+
+  let query = supabase
+    .from("courses")
+    .select("*")
+    .eq("is_published", true);
+
+  if (category !== "All") {
+    query = query.eq("category", category);
+  }
+
+  if (priceFilter === "Under Rs. 60") {
+    query = query.lt("price", 60);
+  } else if (priceFilter === "Rs. 60 - Rs. 70") {
+    query = query.gte("price", 60).lte("price", 70);
+  } else if (priceFilter === "Above Rs. 70") {
+    query = query.gt("price", 70);
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+  
+  return {
+    data: data || [],
+    nextPage: (data && data.length === limit) ? pageParam + 1 : null
+  };
+}
+
+/**
  * Subscribe to all published courses and receive live updates.
  * Returns an unsubscribe function.
  */
