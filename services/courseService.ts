@@ -236,6 +236,24 @@ export async function getVideos(
   return data || [];
 }
 
+export async function getVideoById(
+  videoId: string
+): Promise<DatabaseVideo | null> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select("*")
+    .eq("id", videoId)
+    .single();
+
+  if (error) {
+    if (error.code !== "PGRST116") {
+      console.error("Error fetching video by id:", error);
+    }
+    return null;
+  }
+  return data;
+}
+
 export async function createVideo(
   courseId: string,
   moduleId: string,

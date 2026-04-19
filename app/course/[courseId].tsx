@@ -20,12 +20,17 @@ import {
     getModules,
     getVideos,
 } from "../../services/courseService";
+import { DatabaseVideo } from "../../types/supabase";
+import CourseDetailSkeleton from "../../components/ui/CourseDetailSkeleton";
+import CourseCardSkeleton from "../../components/ui/CourseCardSkeleton";
+import { FlashList } from "@shopify/flash-list";
 
 type ModuleWithLectureCount = {
   id: string;
   title: string;
   orderIndex: number;
   lectureCount: number;
+  videos: DatabaseVideo[];
 };
 
 type CourseHeader = {
@@ -56,6 +61,7 @@ export default function CourseDetailsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAddingVideo, setIsAddingVideo] = useState<string | null>(null); // moduleId if adding
   const [error, setError] = useState<string | null>(null);
+  const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
 
   const loadCourseDetails = useCallback(async () => {
     if (!courseId) {
@@ -92,15 +98,17 @@ export default function CourseDetailsScreen() {
             return {
               id: module.id,
               title: module.title,
-              orderIndex: module.orderIndex,
+              orderIndex: module.order_index,
               lectureCount: videos.length,
+              videos,
             } as ModuleWithLectureCount;
           } catch {
             return {
               id: module.id,
               title: module.title,
-              orderIndex: module.orderIndex,
+              orderIndex: module.order_index,
               lectureCount: 0,
+              videos: [],
             } as ModuleWithLectureCount;
           }
         }),
@@ -168,94 +176,103 @@ export default function CourseDetailsScreen() {
         <View style={styles.rightPlaceholder} />
       </View>
 
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surface}
-          />
-        }
-      >
-        {course ? (
-          <View style={styles.courseCard}>
-            <Text style={styles.courseTitle}>{course.title}</Text>
-            <Text style={styles.courseMeta}>by {course.mentor}</Text>
-            <Text style={styles.courseMeta}>Category: {course.category}</Text>
+      <View style={styles.screen}>
+        {/* @ts-ignore */}
+        <FlashList
+          data={isLoading ? [] : modules}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={60}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surface}
+            />
+          }
+          ListHeaderComponent={
+            course ? (
+              <View style={[styles.courseCard, { marginBottom: 12 }]}>
+                <Text style={styles.courseTitle}>{course.title}</Text>
+                <Text style={styles.courseMeta}>by {course.mentor}</Text>
+                <Text style={styles.courseMeta}>Category: {course.category}</Text>
 
-            <View style={styles.badgeRow}>
-              <View style={styles.badge}>
-                <Ionicons
-                  name="layers-outline"
-                  size={14}
-                  color={colors.primary}
-                />
-                <Text style={styles.badgeText}>{modules.length} modules</Text>
+                <View style={styles.badgeRow}>
+                  <View style={styles.badge}>
+                    <Ionicons
+                      name="layers-outline"
+                      size={14}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.badgeText}>{modules.length} modules</Text>
+                  </View>
+
+                  <View style={styles.badge}>
+                    <Ionicons
+                      name="play-circle-outline"
+                      size={14}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.badgeText}>{totalLectures} lectures</Text>
+                  </View>
+
+                  <View style={styles.badge}>
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={14}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.badgeText}>
+                      {formatPrice(course.price)}
+                    </Text>
+                  </View>
+                </View>
               </View>
-
-              <View style={styles.badge}>
-                <Ionicons
-                  name="play-circle-outline"
-                  size={14}
-                  color={colors.primary}
-                />
-                <Text style={styles.badgeText}>{totalLectures} lectures</Text>
+            ) : null
+          }
+          ListEmptyComponent={
+            isLoading ? (
+              <View style={{ gap: 12 }}>
+                 <CourseDetailSkeleton />
+                 {[1, 2, 3].map(key => <CourseCardSkeleton key={key} />)}
               </View>
-
-              <View style={styles.badge}>
-                <Ionicons
-                  name="pricetag-outline"
-                  size={14}
-                  color={colors.primary}
+            ) : error ? (
+              <View style={styles.emptyState}>
+                <ExpoImage
+                  source={require("../../assets/images/404-not-found.svg")}
+                  style={styles.emptyImage}
+                  contentFit="contain"
                 />
-                <Text style={styles.badgeText}>
-                  {formatPrice(course.price)}
+                <Text style={styles.emptyTitle}>Something went wrong</Text>
+                <Text style={styles.emptySubtitle}>{error}</Text>
+              </View>
+            ) : modules.length === 0 ? (
+              <View style={styles.emptyState}>
+                <ExpoImage
+                  source={require("../../assets/images/empty-folder.svg")}
+                  style={styles.emptyImage}
+                  contentFit="contain"
+                />
+                <Text style={styles.emptyTitle}>No modules yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  This course does not have modules at the moment.
                 </Text>
               </View>
-            </View>
-          </View>
-        ) : null}
-
-        {isLoading ? (
-          <View style={styles.loaderWrap}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null}
-
-        {!isLoading && error ? (
-          <View style={styles.emptyState}>
-            <ExpoImage
-              source={require("../../assets/images/404-not-found.svg")}
-              style={styles.emptyImage}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>Something went wrong</Text>
-            <Text style={styles.emptySubtitle}>{error}</Text>
-          </View>
-        ) : null}
-
-        {!isLoading && !error && modules.length === 0 ? (
-          <View style={styles.emptyState}>
-            <ExpoImage
-              source={require("../../assets/images/empty-folder.svg")}
-              style={styles.emptyImage}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>No modules yet</Text>
-            <Text style={styles.emptySubtitle}>
-              This course does not have modules at the moment.
-            </Text>
-          </View>
-        ) : null}
-
-        {!isLoading
-          ? modules.map((module, index) => (
-              <View key={module.id} style={styles.moduleCard}>
+            ) : null
+          }
+          renderItem={({ item: module, index }) => (
+            <View style={styles.moduleContainer}>
+              <Pressable 
+                style={[
+                  styles.moduleCard, 
+                  expandedModuleId === module.id && styles.moduleCardExpanded
+                ]}
+                onPress={() => setExpandedModuleId(expandedModuleId === module.id ? null : module.id)}
+              >
                 <View style={styles.moduleIndexWrap}>
                   <Text style={styles.moduleIndex}>{index + 1}</Text>
                 </View>
@@ -285,14 +302,33 @@ export default function CourseDetailsScreen() {
                 )}
 
                 <Ionicons
-                  name="chevron-forward-outline"
+                  name={expandedModuleId === module.id ? "chevron-down-outline" : "chevron-forward-outline"}
                   size={18}
                   color={colors.textSecondary}
                 />
-              </View>
-            ))
-          : null}
-      </ScrollView>
+              </Pressable>
+
+              {expandedModuleId === module.id && module.videos.length > 0 && (
+                <View style={[styles.videosListContainer, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                  {module.videos.map((video, vIndex) => (
+                    <Pressable 
+                      key={video.id} 
+                      style={[styles.videoItem, { borderBottomColor: colors.border }, vIndex === module.videos.length - 1 && styles.lastVideoItem]}
+                      onPress={() => router.push(`/video/${video.id}` as any)}
+                    >
+                        <Ionicons name="play-circle" size={24} color={colors.primary} />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={[styles.videoTitleText, { color: colors.textPrimary }]} numberOfLines={1}>{video.title}</Text>
+                          <Text style={[styles.videoDurationText, { color: colors.textSecondary }]}>{video.duration} min</Text>
+                        </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -401,6 +437,9 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       fontWeight: "500",
       lineHeight: 18,
     },
+    moduleContainer: {
+      marginBottom: 0,
+    },
     moduleCard: {
       flexDirection: "row",
       alignItems: "center",
@@ -411,6 +450,37 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       paddingHorizontal: 10,
       paddingVertical: 10,
       gap: 10,
+    },
+    moduleCardExpanded: {
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+      borderBottomWidth: 0,
+    },
+    videosListContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderBottomLeftRadius: 14,
+      borderBottomRightRadius: 14,
+      borderWidth: 1,
+      borderTopWidth: 0,
+      paddingBottom: 12,
+    },
+    videoItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+    },
+    lastVideoItem: {
+      borderBottomWidth: 0,
+    },
+    videoTitleText: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    videoDurationText: {
+      fontSize: 12,
+      marginTop: 2,
     },
     moduleIndexWrap: {
       width: 30,

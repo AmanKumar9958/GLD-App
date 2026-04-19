@@ -18,6 +18,8 @@ import {
   getUserCoursesWithCache,
   UserCourse,
 } from "../../services/userCourses";
+import CourseCardSkeleton from "../../components/ui/CourseCardSkeleton";
+import { FlashList } from "@shopify/flash-list";
 
 type FilterKey = "all" | "ongoing" | "completed";
 
@@ -138,69 +140,74 @@ export default function CoursesScreen() {
         })}
       </View>
 
-      <ScrollView
-        style={styles.listContainer}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {isLoading ? (
-          <View style={styles.loaderWrap}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null}
-
-        {!isLoading && filteredCourses.length === 0 ? (
-          <View style={styles.emptyState}>
-            <ExpoImage
-              source={require("../../assets/images/empty-folder.svg")}
-              style={styles.emptyImage}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>No courses found</Text>
-            <Text style={styles.emptySubtitle}>
-              Your courses will appear here once you enroll in them.
-            </Text>
-          </View>
-        ) : null}
-
-        {filteredCourses.map((course) => {
-          const statusText =
-            course.progress === 100 ? "Completed" : "In progress";
-
-          return (
-            <View key={course.id} style={styles.courseRow}>
-              <Image
-                source={{ uri: course.image }}
-                style={styles.courseImage}
-              />
-
-              <View style={styles.courseBody}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.courseTitle} numberOfLines={1}>
-                    {course.title}
-                  </Text>
-                  <Text style={styles.progressPct}>{course.progress}%</Text>
-                </View>
-
-                <Text style={styles.courseSubtitle} numberOfLines={1}>
-                  {course.subtitle}
+      <View style={styles.listContainer}>
+        {/* @ts-ignore */}
+        <FlashList
+          data={isLoading ? [] : filteredCourses}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={100}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            isLoading ? (
+              <>
+                {[1, 2, 3, 4].map((key) => (
+                  <CourseCardSkeleton key={key} />
+                ))}
+              </>
+            ) : (
+              <View style={styles.emptyState}>
+                <ExpoImage
+                  source={require("../../assets/images/empty-folder.svg")}
+                  style={styles.emptyImage}
+                  contentFit="contain"
+                />
+                <Text style={styles.emptyTitle}>No courses found</Text>
+                <Text style={styles.emptySubtitle}>
+                  Your courses will appear here once you enroll in them.
                 </Text>
+              </View>
+            )
+          }
+          renderItem={({ item: course }) => {
+            const statusText =
+              course.progress === 100 ? "Completed" : "In progress";
 
-                <Text style={styles.statusText}>{statusText}</Text>
+            return (
+              <View style={styles.courseRow}>
+                <Image
+                  source={{ uri: course.image }}
+                  style={styles.courseImage}
+                />
 
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      { width: `${course.progress}%` },
-                    ]}
-                  />
+                <View style={styles.courseBody}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.courseTitle} numberOfLines={1}>
+                      {course.title}
+                    </Text>
+                    <Text style={styles.progressPct}>{course.progress}%</Text>
+                  </View>
+
+                  <Text style={styles.courseSubtitle} numberOfLines={1}>
+                    {course.subtitle}
+                  </Text>
+
+                  <Text style={styles.statusText}>{statusText}</Text>
+
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        { width: `${course.progress}%` },
+                      ]}
+                    />
+                  </View>
                 </View>
               </View>
-            </View>
-          );
-        })}
-      </ScrollView>
+            );
+          }}
+        />
+      </View>
     </SafeAreaView>
   );
 }

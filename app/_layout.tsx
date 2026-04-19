@@ -4,6 +4,11 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
+import * as SplashScreen from "expo-splash-screen";
+import React, { useEffect } from "react";
+import BrandedLoader from "../components/BrandedLoader";
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
@@ -37,12 +42,14 @@ function RootNavigator() {
   const { colors } = useTheme();
   const styles = createStyles(colors.background);
 
+  useEffect(() => {
+    if (isAuthResolved) {
+      SplashScreen.hideAsync();
+    }
+  }, [isAuthResolved]);
+
   if (!isAuthResolved) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
+    return <BrandedLoader />;
   }
 
   return (
