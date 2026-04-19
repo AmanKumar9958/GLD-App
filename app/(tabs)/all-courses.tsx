@@ -277,15 +277,16 @@ export default function AllCoursesScreen() {
     setModulesError(null);
   };
 
-  const handleBuyNow = () => {
+  const handleOpenCourse = () => {
     if (!selectedCourse) {
       return;
     }
 
-    Alert.alert(
-      "Checkout coming soon",
-      `You selected ${selectedCourse.title}. We will add full checkout flow next.`,
-    );
+    setIsModulePopupVisible(false);
+    router.push({
+      pathname: "/course/[courseId]",
+      params: { courseId: selectedCourse.id },
+    });
   };
 
   const handleToggleWishlist = () => {
@@ -618,9 +619,9 @@ export default function AllCoursesScreen() {
                 <View style={styles.modulePopupActionsRow}>
                   <Pressable
                     style={styles.modulePopupBuyButton}
-                    onPress={handleBuyNow}
+                    onPress={handleOpenCourse}
                   >
-                    <Text style={styles.modulePopupBuyButtonText}>Buy Now</Text>
+                    <Text style={styles.modulePopupBuyButtonText}>Open Course</Text>
                   </Pressable>
 
                   <Pressable

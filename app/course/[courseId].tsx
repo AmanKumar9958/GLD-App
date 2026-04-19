@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -14,6 +15,7 @@ import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import {
+    createVideo,
     getCourseById,
     getModules,
     getVideos,
@@ -52,6 +54,7 @@ export default function CourseDetailsScreen() {
   const [modules, setModules] = useState<ModuleWithLectureCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAddingVideo, setIsAddingVideo] = useState<string | null>(null); // moduleId if adding
   const [error, setError] = useState<string | null>(null);
 
   const loadCourseDetails = useCallback(async () => {
@@ -128,6 +131,30 @@ export default function CourseDetailsScreen() {
   const totalLectures = useMemo(() => {
     return modules.reduce((acc, module) => acc + module.lectureCount, 0);
   }, [modules]);
+
+  const handleAddVideo = async (moduleId: string) => {
+    try {
+      setIsAddingVideo(moduleId);
+      const timestamp = new Date().toLocaleTimeString();
+      const newVideoTitle = `Test Video ${timestamp}`;
+      
+      await createVideo(courseId, moduleId, {
+        title: newVideoTitle,
+        bunny_video_id: "test-bunny-id-" + Math.random().toString(36).substring(7),
+        duration: 120, // 2 minutes
+        is_preview: false,
+        order_index: modules.find(m => m.id === moduleId)?.lectureCount ?? 0,
+      });
+
+      Alert.alert("Success", `Added "${newVideoTitle}" to module.`);
+      await loadCourseDetails();
+    } catch (err) {
+      console.error("Failed to add video:", err);
+      Alert.alert("Error", "Failed to add video. Check console.");
+    } finally {
+      setIsAddingVideo(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -240,6 +267,22 @@ export default function CourseDetailsScreen() {
                     {module.lectureCount === 1 ? "" : "s"}
                   </Text>
                 </View>
+
+                {isAddingVideo === module.id ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Pressable
+                    onPress={() => void handleAddVideo(module.id)}
+                    hitSlop={10}
+                    style={styles.addVideoButton}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  </Pressable>
+                )}
 
                 <Ionicons
                   name="chevron-forward-outline"
@@ -397,5 +440,8 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       fontSize: 12,
       color: colors.textSecondary,
       fontWeight: "600",
+    },
+    addVideoButton: {
+      padding: 4,
     },
   });
