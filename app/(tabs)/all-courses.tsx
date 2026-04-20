@@ -21,10 +21,12 @@ import {
   useWishlist,
 } from "../../context/WishlistContext";
 import {
+import {
   getModules,
-  getPublishedCourses,
-  subscribeToPublishedCourses,
+  getPaginatedCourses,
 } from "../../services/courseService";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { supabase } from "../../services/supabase";
 
 type AllCourse = {
   id: string;
@@ -127,13 +129,10 @@ export default function AllCoursesScreen() {
     return rawCategory || "All";
   }, [params.category]);
 
-  const [courses, setCourses] = useState<AllCourse[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryFilter>(initialCategory);
   const [selectedPrice, setSelectedPrice] = useState<PriceFilter>("All");
   const [showFilters, setShowFilters] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(COURSES_PAGE_SIZE);
   const [moduleCountByCourseId, setModuleCountByCourseId] = useState<
     Record<string, number>
   >({});
@@ -144,13 +143,13 @@ export default function AllCoursesScreen() {
   );
   const [isModulesLoading, setIsModulesLoading] = useState(false);
   const [modulesError, setModulesError] = useState<string | null>(null);
-  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const loadModuleCounts = async (courseIds: string[]) => {
+    const missingIds = courseIds.filter(id => !(id in moduleCountByCourseId));
+    if (missingIds.length === 0) return;
+
     const statsEntries = await Promise.all(
-      courseIds.map(async (courseId) => {
+      missingIds.map(async (courseId) => {
         try {
           const modules = await getModules(courseId);
           return [courseId, modules.length] as const;
@@ -162,11 +161,9 @@ export default function AllCoursesScreen() {
 
     setModuleCountByCourseId((previous) => {
       const next = { ...previous };
-
       for (const [courseId, count] of statsEntries) {
         next[courseId] = count;
       }
-
       return next;
     });
   };
@@ -175,50 +172,55 @@ export default function AllCoursesScreen() {
     setSelectedCategory(initialCategory);
   }, [initialCategory]);
 
-  useEffect(() => {
-    setVisibleCount(COURSES_PAGE_SIZE);
-  }, [selectedCategory, selectedPrice]);
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ['courseCategories'],
+    queryFn: async () => {
+      const { data } = await supabase.from('courses').select('category').eq('is_published', true);
+      const set = new Set(data?.map(d => d.category));
+      return Array.from(set).filter(Boolean) as string[];
+    }
+  });
+
+  const { 
+    data, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    isLoading: isCoursesLoading, 
+    error: fetchErrorValue,
+    refetch,
+    isRefetching: isRefreshing
+  } = useInfiniteQuery({
+    queryKey: ['allCourses', selectedCategory, selectedPrice],
+    queryFn: ({ pageParam = 0 }) => getPaginatedCourses({ pageParam, category: selectedCategory, priceFilter: selectedPrice }),
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+  });
+
+  const fetchError = fetchErrorValue ? "Failed to load courses." : null;
+
+  const courses = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap((page) => page.data.map(c => ({
+      id: c.id,
+      title: c.title,
+      mentor: c.instructor_name || "Instructor",
+      category: c.category || "General",
+      price: c.price || 0,
+      image: c.thumbnail_url || FALLBACK_IMAGE,
+    })));
+  }, [data]);
 
   useEffect(() => {
-    setIsCoursesLoading(true);
-    setFetchError(null);
-
-    const unsubscribe = subscribeToPublishedCourses(
-      (dbCourses) => {
-        const mappedCourses = dbCourses.map((c) => ({
-          id: c.id,
-          title: c.title,
-          mentor: c.instructor_name,
-          category: c.category,
-          price: c.price,
-          image: c.thumbnail_url || FALLBACK_IMAGE,
-        }));
-
-        setCourses(mappedCourses);
-        void loadModuleCounts(mappedCourses.map((course) => course.id));
-        setFetchError(null);
-        setIsCoursesLoading(false);
-      },
-      (err) => {
-        console.error("Failed to load courses:", err);
-        setFetchError("Failed to load courses. Please try again.");
-        setIsCoursesLoading(false);
-      },
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+    if (courses.length > 0) {
+      void loadModuleCounts(courses.map(c => c.id));
+    }
+  }, [courses]);
 
   const categoryFilters = useMemo<CategoryFilter[]>(() => {
-    const set = new Set(courses.map((c) => c.category));
-    // Ensure the URL-param-selected category is always visible, even before data loads
-    if (selectedCategory !== "All") {
-      set.add(selectedCategory);
-    }
+    const set = new Set(allCategories);
+    if (selectedCategory !== "All") set.add(selectedCategory);
     return ["All", ...[...set].sort()];
-  }, [courses, selectedCategory]);
+  }, [allCategories, selectedCategory]);
 
   const priceFilters: PriceFilter[] = [
     "All",
@@ -227,30 +229,20 @@ export default function AllCoursesScreen() {
     "Above Rs. 70",
   ];
 
-  const filteredCourses = useMemo(() => {
-    return courses.filter((course) => {
-      const matchesCategory =
-        selectedCategory === "All" || course.category === selectedCategory;
+  const filteredCourses = courses;
+  const visibleCourses = courses;
+  const hasMoreCourses = !!hasNextPage;
+  const isLoadingMore = isFetchingNextPage;
 
-      let matchesPrice = true;
+  const handleRefresh = async () => {
+    await refetch();
+  };
 
-      if (selectedPrice === "Under Rs. 60") {
-        matchesPrice = course.price < 60;
-      } else if (selectedPrice === "Rs. 60 - Rs. 70") {
-        matchesPrice = course.price >= 60 && course.price <= 70;
-      } else if (selectedPrice === "Above Rs. 70") {
-        matchesPrice = course.price > 70;
-      }
-
-      return matchesCategory && matchesPrice;
-    });
-  }, [courses, selectedCategory, selectedPrice]);
-
-  const visibleCourses = useMemo(() => {
-    return filteredCourses.slice(0, visibleCount);
-  }, [filteredCourses, visibleCount]);
-
-  const hasMoreCourses = visibleCount < filteredCourses.length;
+  const handleShowMore = () => {
+    if (hasNextPage) {
+      fetchNextPage();
+    }
+  };
 
   const openModulesPopup = async (course: AllCourse) => {
     setSelectedCourse(course);
@@ -313,40 +305,7 @@ export default function AllCoursesScreen() {
     ? isInWishlist(selectedCourse.id)
     : false;
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
 
-    try {
-      const dbCourses = await getPublishedCourses();
-
-      setCourses(
-        dbCourses.map((c) => ({
-          id: c.id,
-          title: c.title,
-          mentor: c.instructor_name,
-          category: c.category,
-          price: c.price,
-          image: c.thumbnail_url || FALLBACK_IMAGE,
-        })),
-      );
-
-      void loadModuleCounts(dbCourses.map((course) => course.id));
-      setFetchError(null);
-    } catch (err) {
-      console.error("Failed to refresh courses:", err);
-      setFetchError("Failed to refresh courses. Please try again.");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleShowMore = () => {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setVisibleCount((previous) => previous + COURSES_PAGE_SIZE);
-      setIsLoadingMore(false);
-    }, LOAD_MORE_DELAY_MS);
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>

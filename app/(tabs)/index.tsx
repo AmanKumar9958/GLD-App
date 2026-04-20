@@ -23,9 +23,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { useQuery } from '@tanstack/react-query';
 import {
   getModules,
-  subscribeToPublishedCourses,
+  getPublishedCourses,
 } from "../../services/courseService";
 import {
   getUserProfileWithCache,
@@ -136,16 +137,60 @@ export default function HomeScreen() {
   const hasUnreadNotifications = false;
   const showHeaderAlertDot = wishlistCount > 0 || hasUnreadNotifications;
   
-  const [recommendedCourses, setRecommendedCourses] = useState<HomeCourse[]>(
-    [],
-  );
-  const [popularCourses, setPopularCourses] = useState<HomeCourse[]>([]);
-  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
-  const [coursesError, setCoursesError] = useState<string | null>(null);
   const [areHeaderIconsOpen, setAreHeaderIconsOpen] = useState(false);
   const [greeting, setGreeting] = useState(getIndiaGreeting);
   const toggleProgress = useSharedValue(isDark ? 1 : 0);
   const headerIconsProgress = useSharedValue(0);
+
+  const { data: coursesData, isLoading: isCoursesLoading, error: coursesErrorValue } = useQuery({
+    queryKey: ['homeCourses'],
+    queryFn: async () => {
+      const courses = await getPublishedCourses();
+      
+      const byNewest = [...courses].sort((a, b) => {
+        const bTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const aTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (bTime === aTime) return a.title.localeCompare(b.title);
+        return bTime - aTime;
+      });
+
+      const byPriceDesc = [...courses].sort((a, b) => b.price - a.price);
+
+      const mapHomeCourses = async (source: DatabaseCourse[]): Promise<HomeCourse[]> => {
+        const selected = source.slice(0, HOME_SECTION_SIZE);
+        return Promise.all(
+          selected.map(async (course) => {
+            let lessons = 0;
+            try {
+              const modules = await getModules(course.id);
+              lessons = modules.length;
+            } catch {
+              lessons = 0;
+            }
+            return {
+              id: course.id,
+              title: course.title,
+              mentor: course.instructor_name || "Instructor",
+              lessons,
+              price: `Rs. ${course.price}`,
+              image: course.thumbnail_url || FALLBACK_IMAGE,
+            };
+          })
+        );
+      };
+
+      const [recommended, popular] = await Promise.all([
+        mapHomeCourses(byNewest),
+        mapHomeCourses(byPriceDesc)
+      ]);
+
+      return { recommended, popular };
+    }
+  });
+
+  const recommendedCourses = coursesData?.recommended || [];
+  const popularCourses = coursesData?.popular || [];
+  const coursesError = coursesErrorValue ? "Failed to load courses." : null;
 
   const navigateToAllCourses = useCallback(
     (category?: CategoryItem["label"]) => {
@@ -184,96 +229,6 @@ export default function HomeScreen() {
   const displayPhoto = useMemo(() => {
     return profile?.photoURL || defaultAvatar;
   }, [profile?.photoURL]);
-
-  useEffect(() => {
-    let active = true;
-    let snapshotSeq = 0;
-
-    const mapHomeCourses = async (
-      source: DatabaseCourse[],
-    ): Promise<HomeCourse[]> => {
-      const selected = source.slice(0, HOME_SECTION_SIZE);
-
-      return Promise.all(
-        selected.map(async (course) => {
-          let lessons = 0;
-
-          try {
-            const modules = await getModules(course.id);
-            lessons = modules.length;
-          } catch {
-            lessons = 0;
-          }
-
-          return {
-            id: course.id,
-            title: course.title,
-            mentor: course.instructor_name || "Instructor",
-            lessons,
-            price: `Rs. ${course.price}`,
-            image: course.thumbnail_url || FALLBACK_IMAGE,
-          };
-        }),
-      );
-    };
-
-    const unsubscribe = subscribeToPublishedCourses(
-      (courses) => {
-        const currentSeq = snapshotSeq + 1;
-        snapshotSeq = currentSeq;
-
-        const byNewest = [...courses].sort((a, b) => {
-          const bTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const aTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-          if (bTime === aTime) {
-            return a.title.localeCompare(b.title);
-          }
-
-          return bTime - aTime;
-        });
-
-        const byPriceDesc = [...courses].sort((a, b) => b.price - a.price);
-
-        Promise.all([mapHomeCourses(byNewest), mapHomeCourses(byPriceDesc)])
-          .then(([recommended, popular]) => {
-            if (!active || currentSeq !== snapshotSeq) {
-              return;
-            }
-
-            setRecommendedCourses(recommended);
-            setPopularCourses(popular);
-            setCoursesError(null);
-            setIsCoursesLoading(false);
-          })
-          .catch((error) => {
-            console.error("Failed to map home courses:", error);
-
-            if (!active || currentSeq !== snapshotSeq) {
-              return;
-            }
-
-            setCoursesError("Failed to load courses.");
-            setIsCoursesLoading(false);
-          });
-      },
-      (error) => {
-        console.error("Failed to subscribe courses:", error);
-
-        if (!active) {
-          return;
-        }
-
-        setCoursesError("Failed to load courses.");
-        setIsCoursesLoading(false);
-      },
-    );
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     toggleProgress.value = withTiming(isDark ? 1 : 0, {
