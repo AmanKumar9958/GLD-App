@@ -61,11 +61,11 @@ export async function getPaginatedCourses({
     query = query.eq("category", category);
   }
 
-  if (priceFilter === "Under Rs. 60") {
+  if (priceFilter === "Under ₹ 60") {
     query = query.lt("price", 60);
-  } else if (priceFilter === "Rs. 60 - Rs. 70") {
+  } else if (priceFilter === "₹ 60 - ₹ 70") {
     query = query.gte("price", 60).lte("price", 70);
-  } else if (priceFilter === "Above Rs. 70") {
+  } else if (priceFilter === "Above ₹ 70") {
     query = query.gt("price", 70);
   }
 

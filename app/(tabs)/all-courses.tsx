@@ -36,7 +36,7 @@ type AllCourse = {
 };
 
 type CategoryFilter = "All" | string;
-type PriceFilter = "All" | "Under Rs. 60" | "Rs. 60 - Rs. 70" | "Above Rs. 70";
+type PriceFilter = "All" | "Under ₹ 60" | "₹ 60 - ₹ 70" | "Above ₹ 70";
 const COURSES_PAGE_SIZE = 4;
 const LOAD_MORE_DELAY_MS = 350;
 
@@ -69,7 +69,7 @@ function getCategoryIcon(
 }
 
 function formatPrice(price: number): string {
-  return `Rs. ${price}`;
+  return `₹${price}`;
 }
 
 function mapToWishlistCategory(category: string): WishlistCourse["category"] {
@@ -222,9 +222,9 @@ export default function AllCoursesScreen() {
 
   const priceFilters: PriceFilter[] = [
     "All",
-    "Under Rs. 60",
-    "Rs. 60 - Rs. 70",
-    "Above Rs. 70",
+    "Under ₹ 60",
+    "₹ 60 - ₹ 70",
+    "Above ₹ 70",
   ];
 
   const filteredCourses = courses;

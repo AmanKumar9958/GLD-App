@@ -84,7 +84,7 @@ function WishlistScreen() {
                 <Text style={styles.courseTitle} numberOfLines={1}>
                   {course.title}
                 </Text>
-                <Text style={styles.priceTag}>{course.price}</Text>
+                <Text style={styles.priceTag}>{course.price.replace(/Rs\.?\s*/g, '₹')}</Text>
               </View>
 
               <Text style={styles.mentorText} numberOfLines={1}>

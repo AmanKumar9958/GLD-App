@@ -41,7 +41,7 @@ type CourseHeader = {
 };
 
 function formatPrice(price: number): string {
-  return `Rs. ${price}`;
+  return `₹${price}`;
 }
 
 export default function CourseDetailsScreen() {

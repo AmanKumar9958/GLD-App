@@ -118,7 +118,7 @@ function CourseCard({
         <Text style={styles.courseTitle} numberOfLines={1}>
           {course.title}
         </Text>
-        <Text style={styles.coursePrice}>{course.price}</Text>
+        <Text style={styles.coursePrice}>{course.price.replace(/Rs\.?\s*/g, '₹')}</Text>
       </View>
       <Text style={styles.courseSub} numberOfLines={1}>
         {course.mentor}
@@ -172,7 +172,7 @@ export default function HomeScreen() {
               title: course.title,
               mentor: course.instructor_name || "Instructor",
               lessons,
-              price: `Rs. ${course.price}`,
+              price: `₹${course.price}`,
               image: course.thumbnail_url || FALLBACK_IMAGE,
             };
           })
