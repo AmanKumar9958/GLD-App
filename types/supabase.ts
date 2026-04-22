@@ -7,6 +7,7 @@ export interface DatabaseUser {
   name: string;
   email: string;
   photo_url: string | null;
+  phone: string | null;
   role: "student" | "admin";
   created_at: string; // ISO timestamp
   updated_at: string;
@@ -57,6 +58,18 @@ export interface DatabaseWishlist {
   user_id: string;
   course_id: string;
   added_at: string;
+}
+
+export interface DatabasePayment {
+  id: string;
+  user_id: string;
+  course_id: string;
+  order_id: string;
+  payment_session_id: string;
+  amount: number;
+  status: "pending" | "paid" | "failed";
+  created_at: string;
+  updated_at: string;
 }
 
 /**
