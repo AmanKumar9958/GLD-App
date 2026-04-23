@@ -7,6 +7,7 @@ export type UserProfile = {
   name: string;
   email?: string;
   photoURL?: string;
+  phone?: string;
   role?: "student" | "admin";
 };
 
@@ -20,6 +21,7 @@ function mapDatabaseUserToProfile(dbUser: DatabaseUser): UserProfile {
     name: dbUser.name,
     email: dbUser.email,
     photoURL: dbUser.photo_url || undefined,
+    phone: dbUser.phone || undefined,
     role: dbUser.role,
   };
 }
@@ -61,6 +63,7 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 
   if (profile.email) updateData.email = profile.email;
   if (profile.photoURL) updateData.photo_url = profile.photoURL;
+  if (profile.phone !== undefined) updateData.phone = profile.phone;
   if (profile.role) updateData.role = profile.role;
 
   const { error } = await supabase
