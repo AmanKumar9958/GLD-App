@@ -10,13 +10,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.codewithaman.gldinstitute"
+      "bundleIdentifier": "com.solostackdev.gldinstitute"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
-      "package": "com.codewithaman.gldinstitute",
+      "package": "com.solostackdev.gldinstitute",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
