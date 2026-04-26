@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Pressable,
@@ -11,9 +12,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
-import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import {
@@ -21,11 +21,9 @@ import {
   useWishlist,
 } from "../../context/WishlistContext";
 import {
-import {
   getModules,
   getPaginatedCourses,
 } from "../../services/courseService";
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "../../services/supabase";
 
 type AllCourse = {
@@ -181,12 +179,12 @@ export default function AllCoursesScreen() {
     }
   });
 
-  const { 
-    data, 
-    fetchNextPage, 
-    hasNextPage, 
-    isFetchingNextPage, 
-    isLoading: isCoursesLoading, 
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isCoursesLoading,
     error: fetchErrorValue,
     refetch,
     isRefetching: isRefreshing
@@ -404,8 +402,8 @@ export default function AllCoursesScreen() {
 
         {isCoursesLoading
           ? Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
-              <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
-            ))
+            <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
+          ))
           : null}
 
         {!isCoursesLoading && fetchError ? (
@@ -436,54 +434,54 @@ export default function AllCoursesScreen() {
 
         {!isCoursesLoading
           ? visibleCourses.map((course) => (
-              <Pressable
-                key={course.id}
-                style={styles.courseCard}
-                onPress={() => void openModulesPopup(course)}
-              >
-                <Image
-                  source={{ uri: course.image }}
-                  style={styles.courseImage}
-                />
+            <Pressable
+              key={course.id}
+              style={styles.courseCard}
+              onPress={() => void openModulesPopup(course)}
+            >
+              <Image
+                source={{ uri: course.image }}
+                style={styles.courseImage}
+              />
 
-                <View style={styles.courseContent}>
-                  <View style={styles.titleRow}>
-                    <Text style={styles.courseTitle} numberOfLines={1}>
-                      {course.title}
-                    </Text>
-                    <Text style={styles.priceTag}>
-                      {formatPrice(course.price)}
-                    </Text>
+              <View style={styles.courseContent}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.courseTitle} numberOfLines={1}>
+                    {course.title}
+                  </Text>
+                  <Text style={styles.priceTag}>
+                    {formatPrice(course.price)}
+                  </Text>
+                </View>
+
+                <Text style={styles.mentorText} numberOfLines={1}>
+                  by {course.mentor}
+                </Text>
+
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Ionicons
+                      name={getCategoryIcon(course.category)}
+                      size={14}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.metaText}>{course.category}</Text>
                   </View>
 
-                  <Text style={styles.mentorText} numberOfLines={1}>
-                    by {course.mentor}
-                  </Text>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name={getCategoryIcon(course.category)}
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.metaText}>{course.category}</Text>
-                    </View>
-
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="layers-outline"
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.secondaryMetaText}>
-                        {moduleCountByCourseId[course.id] ?? 0} modules
-                      </Text>
-                    </View>
+                  <View style={styles.metaItem}>
+                    <Ionicons
+                      name="layers-outline"
+                      size={14}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.secondaryMetaText}>
+                      {moduleCountByCourseId[course.id] ?? 0} modules
+                    </Text>
                   </View>
                 </View>
-              </Pressable>
-            ))
+              </View>
+            </Pressable>
+          ))
           : null}
 
         {!isCoursesLoading && hasMoreCourses ? (
@@ -587,7 +585,7 @@ export default function AllCoursesScreen() {
                     style={[
                       styles.modulePopupWishlistButton,
                       isSelectedCourseWishlisted &&
-                        styles.modulePopupWishlistButtonActive,
+                      styles.modulePopupWishlistButtonActive,
                     ]}
                     onPress={handleToggleWishlist}
                   >
