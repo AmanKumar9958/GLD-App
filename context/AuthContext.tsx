@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = data.session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
-        await refreshProfile(currentUser.id);
+        refreshProfile(currentUser.id).catch(console.error);
       }
       setIsAuthResolved(true);
     };
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
-          await refreshProfile(currentUser.id);
+          refreshProfile(currentUser.id).catch(console.error);
         } else {
           setProfile(null);
         }

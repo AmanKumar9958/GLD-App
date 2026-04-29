@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -158,11 +158,21 @@ export default function CourseDetailsScreen() {
 
   const isAdmin = profile?.role === "admin";
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const loadCourseDetails = useCallback(async () => {
     if (!courseId) {
-      setError("Invalid course.");
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (isMounted.current) {
+        setError("Invalid course.");
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
       return;
     }
 
@@ -173,18 +183,22 @@ export default function CourseDetailsScreen() {
       ]);
 
       if (!courseDoc) {
-        setError("Course not found.");
-        setModules([]);
-        setCourse(null);
+        if (isMounted.current) {
+          setError("Course not found.");
+          setModules([]);
+          setCourse(null);
+        }
         return;
       }
 
-      setCourse({
-        title: courseDoc.title,
-        category: courseDoc.category,
-        mentor: courseDoc.instructor_name || "Instructor",
-        price: courseDoc.price,
-      });
+      if (isMounted.current) {
+        setCourse({
+          title: courseDoc.title,
+          category: courseDoc.category,
+          mentor: courseDoc.instructor_name || "Instructor",
+          price: courseDoc.price,
+        });
+      }
 
       // Check enrollment
       if (user) {
@@ -194,7 +208,9 @@ export default function CourseDetailsScreen() {
           .eq("user_id", user.id)
           .eq("course_id", courseId)
           .maybeSingle();
-        setIsEnrolled(!!data);
+        if (isMounted.current) {
+          setIsEnrolled(!!data);
+        }
       }
 
       const moduleWithCounts = await Promise.all(
@@ -220,15 +236,21 @@ export default function CourseDetailsScreen() {
         }),
       );
 
-      setModules(moduleWithCounts.sort((a, b) => a.orderIndex - b.orderIndex));
-      setError(null);
+      if (isMounted.current) {
+        setModules(moduleWithCounts.sort((a, b) => a.orderIndex - b.orderIndex));
+        setError(null);
+      }
     } catch (err) {
       console.error("Failed to load course details:", err);
-      setError("Failed to load course modules. Please try again.");
-      setModules([]);
+      if (isMounted.current) {
+        setError("Failed to load course modules. Please try again.");
+        setModules([]);
+      }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [courseId, user]);
 
@@ -238,6 +260,7 @@ export default function CourseDetailsScreen() {
   }, [loadCourseDetails]);
 
   const handleRefresh = () => {
+    if (!isMounted.current) return;
     setIsRefreshing(true);
     void loadCourseDetails();
   };
@@ -263,7 +286,7 @@ export default function CourseDetailsScreen() {
   };
 
   const handlePhoneSubmit = async (phone: string) => {
-    setShowPhoneModal(false);
+    if (isMounted.current) setShowPhoneModal(false);
     try {
       // Save phone to DB and refresh local profile
       await saveUserProfile({ ...profile!, uid: user!.id, phone });
@@ -271,17 +294,20 @@ export default function CourseDetailsScreen() {
     } catch (e) {
       console.error("Failed to save phone:", e);
     }
-    void initiatePayment();
+    if (isMounted.current) void initiatePayment();
   };
 
   const initiatePayment = async () => {
     if (!courseId || !course) return;
-    setIsBuyLoading(true);
+    if (isMounted.current) setIsBuyLoading(true);
     try {
       const order = await createCashfreeOrder(courseId);
 
+      if (!isMounted.current) return;
+
       startCashfreePayment(order.orderId, order.paymentSessionId, {
         onSuccess: (orderId) => {
+          if (!isMounted.current) return;
           router.replace({
             pathname: "/payment/success",
             params: {
@@ -292,19 +318,24 @@ export default function CourseDetailsScreen() {
           } as any);
         },
         onError: (code, message) => {
+          if (!isMounted.current) return;
           router.replace({
             pathname: "/payment/failure",
             params: { orderId: order.orderId, code, message, courseId },
           } as any);
         },
         onExit: () => {
-          Alert.alert("Cancelled", "Payment was cancelled.");
+          if (isMounted.current) {
+            Alert.alert("Cancelled", "Payment was cancelled.");
+          }
         },
       });
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Could not start payment. Please try again.");
+      if (isMounted.current) {
+        Alert.alert("Error", err?.message ?? "Could not start payment. Please try again.");
+      }
     } finally {
-      setIsBuyLoading(false);
+      if (isMounted.current) setIsBuyLoading(false);
     }
   };
 

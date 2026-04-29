@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedStyle,
-  withTiming,
+  useSharedValue,
   withRepeat,
   withSequence,
-  Easing,
+  withTiming,
 } from "react-native-reanimated";
 import { useTheme } from "../context/ThemeContext";
 
 export default function BrandedLoader() {
   const { colors } = useTheme();
-  
+
   // Create shared value for scaling
   const scale = useSharedValue(0.85);
   const [progress, setProgress] = useState(1);
@@ -20,7 +20,7 @@ export default function BrandedLoader() {
   useEffect(() => {
     const duration = 2500;
     const intervalTime = duration / 100;
-    
+
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
@@ -55,21 +55,21 @@ export default function BrandedLoader() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.Image
-        source={require("../assets/images/icon.png")}
+        source={require("../assets/images/icon.jpeg")}
         style={[styles.logo, animatedStyle]}
         resizeMode="contain"
       />
-      
+
       <View style={styles.progressContainer}>
         <View style={[styles.track, { backgroundColor: colors.border }]}>
-          <View 
+          <View
             style={[
-              styles.fill, 
-              { 
-                backgroundColor: colors.primary, 
-                width: `${progress}%` 
+              styles.fill,
+              {
+                backgroundColor: colors.primary,
+                width: `${progress}%`
               }
-            ]} 
+            ]}
           />
         </View>
         <Text style={[styles.progressText, { color: colors.textSecondary }]}>

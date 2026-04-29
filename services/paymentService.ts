@@ -1,9 +1,9 @@
+import { CFPaymentGatewayService } from "react-native-cashfree-pg-sdk";
 import {
   CFEnvironment,
-  CFPaymentGatewayService,
   CFSession,
   CFTheme,
-} from "react-native-cashfree-pg-sdk";
+} from "cashfree-pg-api-contract";
 import { supabase } from "./supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

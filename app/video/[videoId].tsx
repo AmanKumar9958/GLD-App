@@ -32,25 +32,41 @@ export default function VideoDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     async function loadVideo() {
       if (!videoId) {
-        setError("Invalid video selection.");
-        setIsLoading(false);
+        if (isMounted.current) {
+          setError("Invalid video selection.");
+          setIsLoading(false);
+        }
         return;
       }
       try {
         const v = await getVideoById(videoId);
-        if (!v) {
-          setError("Video not found.");
-        } else {
-          setVideo(v);
+        if (isMounted.current) {
+          if (!v) {
+            setError("Video not found.");
+          } else {
+            setVideo(v);
+          }
         }
       } catch (err) {
         console.error("Load video err:", err);
-        setError("Failed to load video properties.");
+        if (isMounted.current) {
+          setError("Failed to load video properties.");
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted.current) {
+          setIsLoading(false);
+        }
       }
     }
     void loadVideo();

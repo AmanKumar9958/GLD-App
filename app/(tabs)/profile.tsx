@@ -49,6 +49,14 @@ export default function ProfileScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
+  const isMounted = React.useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const opacity = useSharedValue(0);
 
   useFocusEffect(
@@ -81,10 +89,12 @@ export default function ProfileScreen() {
       await signOutCurrentUser();
       // Do nothing here — _layout.tsx onAuthStateChanged handles the redirect
     } catch (error) {
-      setIsLoggingOut(false);
-      const message =
-        error instanceof Error ? error.message : "Unable to logout right now.";
-      Alert.alert("Logout failed", message);
+      if (isMounted.current) {
+        setIsLoggingOut(false);
+        const message =
+          error instanceof Error ? error.message : "Unable to logout right now.";
+        Alert.alert("Logout failed", message);
+      }
     }
   };
 

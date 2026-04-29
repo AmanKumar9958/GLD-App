@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   type WishlistCourse,
   useWishlist,
@@ -25,6 +26,14 @@ import {
   getPaginatedCourses,
 } from "../../services/courseService";
 import { supabase } from "../../services/supabase";
+import { saveUserProfile } from "../../services/userProfile";
+import { createCashfreeOrder, startCashfreePayment } from "../../services/paymentService";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
+  Alert,
+} from "react-native";
 
 type AllCourse = {
   id: string;
@@ -117,6 +126,7 @@ export default function AllCoursesScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { user, profile, refreshProfile } = useAuth();
 
   const initialCategory = useMemo<CategoryFilter>(() => {
     const rawCategory =
@@ -141,6 +151,17 @@ export default function AllCoursesScreen() {
   );
   const [isModulesLoading, setIsModulesLoading] = useState(false);
   const [modulesError, setModulesError] = useState<string | null>(null);
+  const [isBuyLoading, setIsBuyLoading] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const loadModuleCounts = async (courseIds: string[]) => {
     const missingIds = courseIds.filter(id => !(id in moduleCountByCourseId));
@@ -157,13 +178,15 @@ export default function AllCoursesScreen() {
       }),
     );
 
-    setModuleCountByCourseId((previous) => {
-      const next = { ...previous };
-      for (const [courseId, count] of statsEntries) {
-        next[courseId] = count;
-      }
-      return next;
-    });
+    if (isMounted.current) {
+      setModuleCountByCourseId((previous) => {
+        const next = { ...previous };
+        for (const [courseId, count] of statsEntries) {
+          next[courseId] = count;
+        }
+        return next;
+      });
+    }
   };
 
   useEffect(() => {
@@ -251,12 +274,18 @@ export default function AllCoursesScreen() {
 
     try {
       const modules = await getModules(course.id);
-      setSelectedCourseModules(modules.map((module) => module.title));
+      if (isMounted.current) {
+        setSelectedCourseModules(modules.map((module) => module.title));
+      }
     } catch (err) {
       console.error("Failed to load modules:", err);
-      setModulesError("Failed to load modules. Please try again.");
+      if (isMounted.current) {
+        setModulesError("Failed to load modules. Please try again.");
+      }
     } finally {
-      setIsModulesLoading(false);
+      if (isMounted.current) {
+        setIsModulesLoading(false);
+      }
     }
   };
 
@@ -267,16 +296,69 @@ export default function AllCoursesScreen() {
     setModulesError(null);
   };
 
-  const handleOpenCourse = () => {
-    if (!selectedCourse) {
+  const handleBuyNow = () => {
+    if (!selectedCourse) return;
+    if (!user) {
+      Alert.alert("Sign In Required", "Please sign in to purchase this course.");
       return;
     }
+    if (!profile?.phone) {
+      setPhoneInput("");
+      setShowPhoneModal(true);
+      return;
+    }
+    void initiatePayment(selectedCourse);
+  };
 
-    setIsModulePopupVisible(false);
-    router.push({
-      pathname: "/course/[courseId]",
-      params: { courseId: selectedCourse.id },
-    });
+  const handlePhoneSubmit = async () => {
+    const phone = phoneInput.trim();
+    if (!/^[6-9]\d{9}$/.test(phone)) return;
+    if (isMounted.current) setShowPhoneModal(false);
+    try {
+      await saveUserProfile({ ...profile!, uid: user!.id, phone });
+      await refreshProfile();
+    } catch (e) {
+      console.error("Failed to save phone:", e);
+    }
+    if (selectedCourse && isMounted.current) void initiatePayment(selectedCourse);
+  };
+
+  const initiatePayment = async (course: AllCourse) => {
+    if (isMounted.current) {
+      setIsBuyLoading(true);
+      setIsModulePopupVisible(false);
+    }
+    try {
+      const order = await createCashfreeOrder(course.id);
+      
+      if (!isMounted.current) return;
+
+      startCashfreePayment(order.orderId, order.paymentSessionId, {
+        onSuccess: (orderId) => {
+          if (!isMounted.current) return;
+          router.replace({
+            pathname: "/payment/success",
+            params: { orderId, courseTitle: course.title, courseId: course.id },
+          } as any);
+        },
+        onError: (code, message) => {
+          if (!isMounted.current) return;
+          router.replace({
+            pathname: "/payment/failure",
+            params: { orderId: order.orderId, code, message, courseId: course.id },
+          } as any);
+        },
+        onExit: () => {
+          if (isMounted.current) Alert.alert("Cancelled", "Payment was cancelled.");
+        },
+      });
+    } catch (err: any) {
+      if (isMounted.current) {
+        Alert.alert("Error", err?.message ?? "Could not start payment. Please try again.");
+      }
+    } finally {
+      if (isMounted.current) setIsBuyLoading(false);
+    }
   };
 
   const handleToggleWishlist = () => {
@@ -306,308 +388,377 @@ export default function AllCoursesScreen() {
 
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={22} color={colors.primary} />
-        </Pressable>
-        <Text style={styles.pageTitle}>All Courses</Text>
-        <Pressable
-          onPress={() => setShowFilters((prev) => !prev)}
-          style={styles.filtersToggleBtn}
-          hitSlop={8}
-        >
-          <Ionicons
-            name={showFilters ? "eye-off-outline" : "eye-outline"}
-            size={15}
-            color={colors.primary}
-          />
-          <Text style={styles.filtersToggleText}>
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </Text>
-        </Pressable>
-      </View>
-
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surface}
-          />
-        }
-      >
-        {showFilters ? (
-          <View style={styles.filtersCard}>
-            <Text style={styles.filtersHeading}>Category</Text>
-            <View style={styles.filterRow}>
-              {categoryFilters.map((filter) => {
-                const isSelected = selectedCategory === filter;
-
-                return (
-                  <Pressable
-                    key={filter}
-                    style={[
-                      styles.filterChip,
-                      isSelected && styles.filterChipSelected,
-                    ]}
-                    onPress={() => setSelectedCategory(filter)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        isSelected && styles.filterChipTextSelected,
-                      ]}
-                    >
-                      {filter}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.filtersHeading}>Price</Text>
-            <View style={styles.filterRow}>
-              {priceFilters.map((filter) => {
-                const isSelected = selectedPrice === filter;
-
-                return (
-                  <Pressable
-                    key={filter}
-                    style={[
-                      styles.filterChip,
-                      isSelected && styles.filterChipSelected,
-                    ]}
-                    onPress={() => setSelectedPrice(filter)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        isSelected && styles.filterChipTextSelected,
-                      ]}
-                    >
-                      {filter}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
-        {isCoursesLoading
-          ? Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
-            <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
-          ))
-          : null}
-
-        {!isCoursesLoading && fetchError ? (
-          <View style={styles.emptyState}>
-            <ExpoImage
-              source={require("../../assets/images/404-not-found.svg")}
-              style={styles.emptyImage}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>Something went wrong</Text>
-            <Text style={styles.emptySubtitle}>{fetchError}</Text>
-          </View>
-        ) : null}
-
-        {!isCoursesLoading && !fetchError && filteredCourses.length === 0 ? (
-          <View style={styles.emptyState}>
-            <ExpoImage
-              source={require("../../assets/images/empty-folder.svg")}
-              style={styles.emptyImage}
-              contentFit="contain"
-            />
-            <Text style={styles.emptyTitle}>No matching courses</Text>
-            <Text style={styles.emptySubtitle}>
-              Try changing category or price filters.
-            </Text>
-          </View>
-        ) : null}
-
-        {!isCoursesLoading
-          ? visibleCourses.map((course) => (
-            <Pressable
-              key={course.id}
-              style={styles.courseCard}
-              onPress={() => void openModulesPopup(course)}
-            >
-              <Image
-                source={{ uri: course.image }}
-                style={styles.courseImage}
-              />
-
-              <View style={styles.courseContent}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.courseTitle} numberOfLines={1}>
-                    {course.title}
-                  </Text>
-                  <Text style={styles.priceTag}>
-                    {formatPrice(course.price)}
-                  </Text>
-                </View>
-
-                <Text style={styles.mentorText} numberOfLines={1}>
-                  by {course.mentor}
-                </Text>
-
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Ionicons
-                      name={getCategoryIcon(course.category)}
-                      size={14}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.metaText}>{course.category}</Text>
-                  </View>
-
-                  <View style={styles.metaItem}>
-                    <Ionicons
-                      name="layers-outline"
-                      size={14}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.secondaryMetaText}>
-                      {moduleCountByCourseId[course.id] ?? 0} modules
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </Pressable>
-          ))
-          : null}
-
-        {!isCoursesLoading && hasMoreCourses ? (
-          <Pressable
-            style={[
-              styles.showMoreButton,
-              isLoadingMore && styles.showMoreDisabled,
-            ]}
-            onPress={handleShowMore}
-            disabled={isLoadingMore}
-          >
-            {isLoadingMore ? (
-              <View style={styles.loadingMoreRow}>
-                <ActivityIndicator size="small" color={colors.white} />
-                <Text style={styles.showMoreButtonText}>Loading...</Text>
-              </View>
-            ) : (
-              <Text style={styles.showMoreButtonText}>Show More</Text>
-            )}
+    <>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="arrow-back" size={22} color={colors.primary} />
           </Pressable>
-        ) : !isCoursesLoading && filteredCourses.length > 0 ? (
-          <View style={styles.noMoreWrap}>
-            <Text style={styles.noMoreText}>No more courses</Text>
-          </View>
-        ) : null}
-      </ScrollView>
-
-      <Modal
-        transparent
-        animationType="fade"
-        visible={isModulePopupVisible}
-        onRequestClose={closeModulesPopup}
-      >
-        <View style={styles.modalRoot}>
+          <Text style={styles.pageTitle}>All Courses</Text>
           <Pressable
-            style={styles.modalBackdropPressable}
-            onPress={closeModulesPopup}
-          />
+            onPress={() => setShowFilters((prev) => !prev)}
+            style={styles.filtersToggleBtn}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={showFilters ? "eye-off-outline" : "eye-outline"}
+              size={15}
+              color={colors.primary}
+            />
+            <Text style={styles.filtersToggleText}>
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </Text>
+          </Pressable>
+        </View>
 
-          <View style={styles.modulePopupCard}>
-            <View style={styles.modulePopupHeaderRow}>
-              <Text style={styles.modulePopupTitle}>Course Modules</Text>
-              <Pressable onPress={closeModulesPopup} hitSlop={8}>
-                <Ionicons name="close" size={20} color={colors.textPrimary} />
+        <ScrollView
+          style={styles.screen}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surface}
+            />
+          }
+        >
+          {showFilters ? (
+            <View style={styles.filtersCard}>
+              <Text style={styles.filtersHeading}>Category</Text>
+              <View style={styles.filterRow}>
+                {categoryFilters.map((filter) => {
+                  const isSelected = selectedCategory === filter;
+
+                  return (
+                    <Pressable
+                      key={filter}
+                      style={[
+                        styles.filterChip,
+                        isSelected && styles.filterChipSelected,
+                      ]}
+                      onPress={() => setSelectedCategory(filter)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          isSelected && styles.filterChipTextSelected,
+                        ]}
+                      >
+                        {filter}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.filtersHeading}>Price</Text>
+              <View style={styles.filterRow}>
+                {priceFilters.map((filter) => {
+                  const isSelected = selectedPrice === filter;
+
+                  return (
+                    <Pressable
+                      key={filter}
+                      style={[
+                        styles.filterChip,
+                        isSelected && styles.filterChipSelected,
+                      ]}
+                      onPress={() => setSelectedPrice(filter)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          isSelected && styles.filterChipTextSelected,
+                        ]}
+                      >
+                        {filter}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          {isCoursesLoading
+            ? Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
+              <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
+            ))
+            : null}
+
+          {!isCoursesLoading && fetchError ? (
+            <View style={styles.emptyState}>
+              <ExpoImage
+                source={require("../../assets/images/404-not-found.svg")}
+                style={styles.emptyImage}
+                contentFit="contain"
+              />
+              <Text style={styles.emptyTitle}>Something went wrong</Text>
+              <Text style={styles.emptySubtitle}>{fetchError}</Text>
+            </View>
+          ) : null}
+
+          {!isCoursesLoading && !fetchError && filteredCourses.length === 0 ? (
+            <View style={styles.emptyState}>
+              <ExpoImage
+                source={require("../../assets/images/empty-folder.svg")}
+                style={styles.emptyImage}
+                contentFit="contain"
+              />
+              <Text style={styles.emptyTitle}>No matching courses</Text>
+              <Text style={styles.emptySubtitle}>
+                Try changing category or price filters.
+              </Text>
+            </View>
+          ) : null}
+
+          {!isCoursesLoading
+            ? visibleCourses.map((course) => (
+              <Pressable
+                key={course.id}
+                style={styles.courseCard}
+                onPress={() => void openModulesPopup(course)}
+              >
+                <Image
+                  source={{ uri: course.image }}
+                  style={styles.courseImage}
+                />
+
+                <View style={styles.courseContent}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.courseTitle} numberOfLines={1}>
+                      {course.title}
+                    </Text>
+                    <Text style={styles.priceTag}>
+                      {formatPrice(course.price)}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.mentorText} numberOfLines={1}>
+                    by {course.mentor}
+                  </Text>
+
+                  <View style={styles.metaRow}>
+                    <View style={styles.metaItem}>
+                      <Ionicons
+                        name={getCategoryIcon(course.category)}
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.metaText}>{course.category}</Text>
+                    </View>
+
+                    <View style={styles.metaItem}>
+                      <Ionicons
+                        name="layers-outline"
+                        size={14}
+                        color={colors.primary}
+                      />
+                      <Text style={styles.secondaryMetaText}>
+                        {moduleCountByCourseId[course.id] ?? 0} modules
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </Pressable>
+            ))
+            : null}
+
+          {!isCoursesLoading && hasMoreCourses ? (
+            <Pressable
+              style={[
+                styles.showMoreButton,
+                isLoadingMore && styles.showMoreDisabled,
+              ]}
+              onPress={handleShowMore}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? (
+                <View style={styles.loadingMoreRow}>
+                  <ActivityIndicator size="small" color={colors.white} />
+                  <Text style={styles.showMoreButtonText}>Loading...</Text>
+                </View>
+              ) : (
+                <Text style={styles.showMoreButtonText}>Show More</Text>
+              )}
+            </Pressable>
+          ) : !isCoursesLoading && filteredCourses.length > 0 ? (
+            <View style={styles.noMoreWrap}>
+              <Text style={styles.noMoreText}>No more courses</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        <Modal
+          transparent
+          animationType="fade"
+          visible={isModulePopupVisible}
+          onRequestClose={closeModulesPopup}
+        >
+          <View style={styles.modalRoot}>
+            <Pressable
+              style={styles.modalBackdropPressable}
+              onPress={closeModulesPopup}
+            />
+
+            <View style={styles.modulePopupCard}>
+              <View style={styles.modulePopupHeaderRow}>
+                <Text style={styles.modulePopupTitle}>Course Modules</Text>
+                <Pressable onPress={closeModulesPopup} hitSlop={8}>
+                  <Ionicons name="close" size={20} color={colors.textPrimary} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.modulePopupCourseLabel}>
+                Course: {selectedCourse?.title || "-"}
+              </Text>
+
+              {isModulesLoading ? (
+                <View style={styles.modulePopupLoadingWrap}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null}
+
+              {!isModulesLoading && modulesError ? (
+                <Text style={styles.modulePopupErrorText}>{modulesError}</Text>
+              ) : null}
+
+              {!isModulesLoading && !modulesError ? (
+                <>
+                  <Text style={styles.modulePopupSubheading}>Modules</Text>
+
+                  {selectedCourseModules.length === 0 ? (
+                    <Text style={styles.modulePopupEmptyText}>
+                      No modules available for this course.
+                    </Text>
+                  ) : (
+                    <ScrollView
+                      style={styles.modulePopupList}
+                      contentContainerStyle={styles.modulePopupListContent}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {selectedCourseModules.map((moduleName, index) => (
+                        <View
+                          key={`${moduleName}-${index}`}
+                          style={styles.modulePopupItem}
+                        >
+                          <Text style={styles.modulePopupItemIndex}>
+                            {index + 1}.
+                          </Text>
+                          <Text style={styles.modulePopupItemText}>
+                            {moduleName}
+                          </Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+
+                  <View style={styles.modulePopupActionsRow}>
+                    <Pressable
+                      style={[styles.modulePopupBuyButton, { opacity: isBuyLoading ? 0.7 : 1 }]}
+                      onPress={handleBuyNow}
+                      disabled={isBuyLoading}
+                    >
+                      {isBuyLoading ? (
+                        <ActivityIndicator color={colors.white} size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name="card-outline" size={16} color={colors.white} />
+                          <Text style={styles.modulePopupBuyButtonText}>Buy Now</Text>
+                        </>
+                      )}
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.modulePopupWishlistButton,
+                        isSelectedCourseWishlisted &&
+                        styles.modulePopupWishlistButtonActive,
+                      ]}
+                      onPress={handleToggleWishlist}
+                    >
+                      <Ionicons
+                        name={
+                          isSelectedCourseWishlisted ? "heart" : "heart-outline"
+                        }
+                        size={20}
+                        color={
+                          isSelectedCourseWishlisted
+                            ? colors.white
+                            : colors.primary
+                        }
+                      />
+                    </Pressable>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          </View>
+        </Modal>
+      </SafeAreaView>
+
+      {/* Phone collection modal */}
+      <Modal
+        visible={showPhoneModal}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowPhoneModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.phoneModalOverlay}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowPhoneModal(false)} />
+          <View style={[styles.phoneModalSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.phoneModalHandle, { backgroundColor: colors.border }]} />
+
+            <View style={[styles.phoneModalIconWrap, { backgroundColor: isDark ? "#1A2E4A" : "#EFF6FF" }]}>
+              <Ionicons name="call" size={24} color={colors.primary} />
             </View>
 
-            <Text style={styles.modulePopupCourseLabel}>
-              Course: {selectedCourse?.title || "-"}
+            <Text style={[styles.phoneModalTitle, { color: colors.textPrimary }]}>One last step!</Text>
+            <Text style={[styles.phoneModalSubtitle, { color: colors.textSecondary }]}>
+              Enter your mobile number to complete the payment.
             </Text>
 
-            {isModulesLoading ? (
-              <View style={styles.modulePopupLoadingWrap}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : null}
+            <View style={[
+              styles.phoneInputWrap,
+              { borderColor: /^[6-9]\d{9}$/.test(phoneInput.trim()) ? colors.primary : colors.border, backgroundColor: colors.background }
+            ]}>
+              <Text style={[styles.dialCode, { color: colors.textSecondary }]}>+91</Text>
+              <View style={[styles.phoneInputDivider, { backgroundColor: colors.border }]} />
+              <TextInput
+                style={[styles.phoneInput, { color: colors.textPrimary }]}
+                placeholder="10-digit mobile number"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={phoneInput}
+                onChangeText={setPhoneInput}
+                autoFocus
+              />
+            </View>
 
-            {!isModulesLoading && modulesError ? (
-              <Text style={styles.modulePopupErrorText}>{modulesError}</Text>
-            ) : null}
+            <Pressable
+              style={[styles.phoneModalBtn, { backgroundColor: /^[6-9]\d{9}$/.test(phoneInput.trim()) ? colors.primary : colors.border }]}
+              onPress={() => void handlePhoneSubmit()}
+              disabled={!/^[6-9]\d{9}$/.test(phoneInput.trim())}
+            >
+              <Text style={styles.phoneModalBtnText}>Continue to Payment</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </Pressable>
 
-            {!isModulesLoading && !modulesError ? (
-              <>
-                <Text style={styles.modulePopupSubheading}>Modules</Text>
-
-                {selectedCourseModules.length === 0 ? (
-                  <Text style={styles.modulePopupEmptyText}>
-                    No modules available for this course.
-                  </Text>
-                ) : (
-                  <ScrollView
-                    style={styles.modulePopupList}
-                    contentContainerStyle={styles.modulePopupListContent}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {selectedCourseModules.map((moduleName, index) => (
-                      <View
-                        key={`${moduleName}-${index}`}
-                        style={styles.modulePopupItem}
-                      >
-                        <Text style={styles.modulePopupItemIndex}>
-                          {index + 1}.
-                        </Text>
-                        <Text style={styles.modulePopupItemText}>
-                          {moduleName}
-                        </Text>
-                      </View>
-                    ))}
-                  </ScrollView>
-                )}
-
-                <View style={styles.modulePopupActionsRow}>
-                  <Pressable
-                    style={styles.modulePopupBuyButton}
-                    onPress={handleOpenCourse}
-                  >
-                    <Text style={styles.modulePopupBuyButtonText}>Open Course</Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.modulePopupWishlistButton,
-                      isSelectedCourseWishlisted &&
-                      styles.modulePopupWishlistButtonActive,
-                    ]}
-                    onPress={handleToggleWishlist}
-                  >
-                    <Ionicons
-                      name={
-                        isSelectedCourseWishlisted ? "heart" : "heart-outline"
-                      }
-                      size={20}
-                      color={
-                        isSelectedCourseWishlisted
-                          ? colors.white
-                          : colors.primary
-                      }
-                    />
-                  </Pressable>
-                </View>
-              </>
-            ) : null}
+            <Pressable onPress={() => setShowPhoneModal(false)}>
+              <Text style={[styles.phoneCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+            </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -942,10 +1093,12 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
     },
     modulePopupBuyButton: {
       flex: 1,
-      borderRadius: 12,
-      backgroundColor: colors.primary,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 6,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
       paddingVertical: 11,
     },
     modulePopupBuyButtonText: {
@@ -965,5 +1118,88 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
     },
     modulePopupWishlistButtonActive: {
       backgroundColor: colors.primary,
+    },
+    // Phone modal styles
+    phoneModalOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0,0,0,0.5)",
+    },
+    phoneModalSheet: {
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderWidth: 1,
+      paddingHorizontal: 24,
+      paddingBottom: 36,
+      paddingTop: 12,
+      alignItems: "center",
+      gap: 14,
+    },
+    phoneModalHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 999,
+      marginBottom: 8,
+    },
+    phoneModalIconWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    phoneModalTitle: {
+      fontSize: 20,
+      fontWeight: "800",
+      textAlign: "center",
+    },
+    phoneModalSubtitle: {
+      fontSize: 13,
+      textAlign: "center",
+      lineHeight: 20,
+      fontWeight: "500",
+    },
+    phoneInputWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1.5,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      width: "100%",
+      height: 52,
+    },
+    dialCode: {
+      fontSize: 16,
+      fontWeight: "600",
+      marginRight: 4,
+    },
+    phoneInputDivider: {
+      width: 1,
+      height: 24,
+      marginHorizontal: 10,
+    },
+    phoneInput: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    phoneModalBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      width: "100%",
+      borderRadius: 12,
+      paddingVertical: 14,
+      justifyContent: "center",
+    },
+    phoneModalBtnText: {
+      color: "#fff",
+      fontWeight: "700",
+      fontSize: 16,
+    },
+    phoneCancelText: {
+      fontSize: 14,
+      fontWeight: "600",
+      paddingVertical: 8,
     },
   });
