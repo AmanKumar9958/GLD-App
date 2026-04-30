@@ -55,7 +55,7 @@ export default function BrandedLoader() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.Image
-        source={require("../assets/images/icon.jpeg")}
+        source={require("../assets/images/icon.png")}
         style={[styles.logo, animatedStyle]}
         resizeMode="contain"
       />

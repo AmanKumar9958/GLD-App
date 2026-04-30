@@ -4,14 +4,13 @@
     "slug": "GLD-Institute",
     "version": "3.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.jpeg",
+    "icon": "./assets/images/icon.png",
     "scheme": "gldinstitute",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.solostackdev.gldinstitute",
-      "buildNumber": 5
+      "bundleIdentifier": "com.solostackdev.gldinstitute"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +23,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/icon.jpeg"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       [
@@ -36,7 +35,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon.jpeg",
+          "image": "./assets/images/icon.png",
           "imageWidth": 150,
           "resizeMode": "contain",
           "backgroundColor": "#F0F4FB",

@@ -2,7 +2,9 @@ import { CFPaymentGatewayService } from "react-native-cashfree-pg-sdk";
 import {
   CFEnvironment,
   CFSession,
-  CFTheme,
+  CFThemeBuilder,
+  CFDropCheckoutPayment,
+  CFPaymentComponentBuilder,
 } from "cashfree-pg-api-contract";
 import { supabase } from "./supabase";
 
@@ -36,8 +38,21 @@ export async function createCashfreeOrder(
   );
 
   if (error) {
-    throw new Error(error.message || "Failed to create payment order");
+    let actualError = error.message;
+    if (error instanceof Error && 'context' in error) {
+      try {
+        const response = (error as any).context as Response;
+        const errBody = await response.json();
+        if (errBody && errBody.error) {
+          actualError = errBody.error;
+        }
+      } catch (e) {
+        // Fallback to original message if JSON parsing fails
+      }
+    }
+    throw new Error(actualError || "Failed to create payment order");
   }
+
   if (!data) {
     throw new Error("Empty response from payment server");
   }
@@ -66,13 +81,15 @@ export function startCashfreePayment(
   const session = new CFSession(paymentSessionId, orderId, CASHFREE_ENV);
 
   // Premium theme matching the GLD brand
-  const theme = new CFTheme()
+  const theme = new CFThemeBuilder()
     .setNavigationBarBackgroundColor("#1A56DB")
     .setNavigationBarTextColor("#FFFFFF")
     .setButtonBackgroundColor("#1A56DB")
     .setButtonTextColor("#FFFFFF")
-    .setPrimaryFont("Outfit-SemiBold")
-    .setSecondaryFont("Outfit-Regular");
+    .build();
+
+  const paymentComponents = new CFPaymentComponentBuilder().build();
+  const checkoutPayment = new CFDropCheckoutPayment(session, paymentComponents, theme);
 
   // Wire up global callbacks BEFORE calling doPayment
   CFPaymentGatewayService.setCallback({
@@ -88,9 +105,5 @@ export function startCashfreePayment(
   });
 
   // Launch payment sheet
-  CFPaymentGatewayService.doPayment(
-    CASHFREE_APP_ID,
-    session,
-    theme
-  );
+  CFPaymentGatewayService.doPayment(checkoutPayment);
 }
