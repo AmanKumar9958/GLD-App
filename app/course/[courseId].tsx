@@ -65,6 +65,7 @@ function PhoneModal({
   onCancel: () => void;
   colors: AppThemeColors;
   isDark: boolean;
+  styles: any;
 }) {
   const [phone, setPhone] = useState("");
   const isValid = /^[6-9]\d{9}$/.test(phone.trim());
@@ -409,6 +410,7 @@ export default function CourseDetailsScreen() {
         onCancel={() => setShowPhoneModal(false)}
         colors={colors}
         isDark={isDark}
+        styles={styles}
       />
 
       <View style={styles.headerRow}>
