@@ -43,7 +43,7 @@ export default function CoursesScreen() {
     let mounted = true;
 
     const loadCourses = async () => {
-      const uid = user?.uid;
+      const uid = user?.id;
 
       if (!uid) {
         if (mounted) {
@@ -82,7 +82,7 @@ export default function CoursesScreen() {
     return () => {
       mounted = false;
     };
-  }, [user?.uid]);
+  }, [user?.id]);
 
   const filteredCourses = useMemo(() => {
     if (activeFilter === "all") {
