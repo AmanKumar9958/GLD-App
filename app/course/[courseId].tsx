@@ -59,6 +59,7 @@ function PhoneModal({
   onCancel,
   colors,
   isDark,
+  styles,
 }: {
   visible: boolean;
   onSubmit: (phone: string) => void;

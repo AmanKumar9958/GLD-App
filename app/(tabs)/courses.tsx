@@ -174,7 +174,10 @@ export default function CoursesScreen() {
               course.progress === 100 ? "Completed" : "In progress";
 
             return (
-              <View style={styles.courseRow}>
+              <Pressable
+                style={styles.courseRow}
+                onPress={() => router.push(`/course/${course.id}` as any)}
+              >
                 <Image
                   source={{ uri: course.image }}
                   style={styles.courseImage}
@@ -203,7 +206,7 @@ export default function CoursesScreen() {
                     />
                   </View>
                 </View>
-              </View>
+              </Pressable>
             );
           }}
         />
