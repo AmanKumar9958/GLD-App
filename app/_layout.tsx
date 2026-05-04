@@ -65,10 +65,9 @@ function RootNavigator() {
   const styles = createStyles(colors.background);
 
   useEffect(() => {
-    if (isAuthResolved) {
-      SplashScreen.hideAsync();
-    }
-  }, [isAuthResolved]);
+    // Hide native splash screen immediately so BrandedLoader is visible
+    SplashScreen.hideAsync();
+  }, []);
 
   if (!isAuthResolved) {
     return <BrandedLoader />;

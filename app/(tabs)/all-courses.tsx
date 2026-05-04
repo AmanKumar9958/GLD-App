@@ -154,6 +154,8 @@ export default function AllCoursesScreen() {
   const [isBuyLoading, setIsBuyLoading] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
+  const [showEnrolledModal, setShowEnrolledModal] = useState(false);
+  const [enrolledCourseId, setEnrolledCourseId] = useState<string | null>(null);
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -354,7 +356,13 @@ export default function AllCoursesScreen() {
       });
     } catch (err: any) {
       if (isMounted.current) {
-        Alert.alert("Error", err?.message ?? "Could not start payment. Please try again.");
+        const msg: string = err?.message ?? "";
+        if (msg.toLowerCase().includes("already enrolled")) {
+          setEnrolledCourseId(course.id);
+          setShowEnrolledModal(true);
+        } else {
+          Alert.alert("Error", msg || "Could not start payment. Please try again.");
+        }
       }
     } finally {
       if (isMounted.current) setIsBuyLoading(false);
@@ -695,6 +703,39 @@ export default function AllCoursesScreen() {
                   </View>
                 </>
               ) : null}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Already Enrolled Modal */}
+        <Modal
+          transparent
+          animationType="fade"
+          visible={showEnrolledModal}
+          onRequestClose={() => setShowEnrolledModal(false)}
+        >
+          <View style={styles.enrolledModalRoot}>
+            <View style={[styles.enrolledModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.enrolledIconWrap, { backgroundColor: isDark ? "#0D2E1A" : "#E8FFF0" }]}>
+                <Ionicons name="checkmark-circle" size={40} color="#22C55E" />
+              </View>
+              <Text style={[styles.enrolledModalTitle, { color: colors.textPrimary }]}>Already Enrolled!</Text>
+              <Text style={[styles.enrolledModalSubtitle, { color: colors.textSecondary }]}>
+                You already have access to this course. Jump right back in and continue learning!
+              </Text>
+              <Pressable
+                style={[styles.enrolledStartBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setShowEnrolledModal(false);
+                  if (enrolledCourseId) router.push(`/course/${enrolledCourseId}` as any);
+                }}
+              >
+                <Ionicons name="play-circle" size={18} color="#fff" />
+                <Text style={styles.enrolledStartBtnText}>Start Learning</Text>
+              </Pressable>
+              <Pressable style={styles.enrolledDismissBtn} onPress={() => setShowEnrolledModal(false)}>
+                <Text style={[styles.enrolledDismissText, { color: colors.textSecondary }]}>Dismiss</Text>
+              </Pressable>
             </View>
           </View>
         </Modal>
@@ -1201,5 +1242,63 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       fontSize: 14,
       fontWeight: "600",
       paddingVertical: 8,
+    },
+    // Already Enrolled Modal
+    enrolledModalRoot: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 28,
+    },
+    enrolledModalCard: {
+      width: "100%",
+      borderRadius: 24,
+      borderWidth: 1,
+      paddingVertical: 32,
+      paddingHorizontal: 24,
+      alignItems: "center",
+      gap: 12,
+    },
+    enrolledIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 4,
+    },
+    enrolledModalTitle: {
+      fontSize: 22,
+      fontWeight: "800",
+      textAlign: "center",
+    },
+    enrolledModalSubtitle: {
+      fontSize: 14,
+      textAlign: "center",
+      lineHeight: 20,
+      fontWeight: "500",
+    },
+    enrolledStartBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      width: "100%",
+      borderRadius: 14,
+      paddingVertical: 14,
+      justifyContent: "center",
+      marginTop: 8,
+    },
+    enrolledStartBtnText: {
+      color: "#fff",
+      fontWeight: "700",
+      fontSize: 16,
+    },
+    enrolledDismissBtn: {
+      paddingVertical: 8,
+    },
+    enrolledDismissText: {
+      fontSize: 14,
+      fontWeight: "600",
     },
   });

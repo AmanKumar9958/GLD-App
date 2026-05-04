@@ -6,6 +6,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -143,26 +144,14 @@ export default function Index() {
         style={styles.container}
       >
         <View style={styles.heroWrap}>
-          <AppGradient
-            colors={["#4A86FF", "#F0437A"]}
-            style={styles.heroGradientBubble}
-          >
-            <View style={styles.heroIconRow}>
-              <View style={styles.heroIconPill}>
-                <Ionicons name="school-outline" size={24} color="#1B3D92" />
-              </View>
-              <View style={styles.heroIconPill}>
-                <Ionicons
-                  name="phone-portrait-outline"
-                  size={24}
-                  color="#A0204C"
-                />
-              </View>
-            </View>
-          </AppGradient>
+          <Image
+            source={require("../assets/images/icon.png")}
+            style={styles.heroIcon}
+            resizeMode="contain"
+          />
 
           <Text style={styles.title} numberOfLines={2}>Welcome, learner!</Text>
-          <Text style={styles.subtitle}>
+          <Text style={styles.subtitle} numberOfLines={1}>
             Sign in and keep building your future.
           </Text>
         </View>
@@ -214,7 +203,7 @@ const createStyles = (colors: AppThemeColors) =>
       alignItems: "center",
       justifyContent: "center"
     },
-    
+
     centeredSpinner: {
       flex: 1,
       alignItems: "center",
@@ -226,30 +215,15 @@ const createStyles = (colors: AppThemeColors) =>
       paddingVertical: 24,
       gap: 12,
     },
-    heroGradientBubble: {
-      width: 182,
-      height: 182,
-      borderRadius: 999,
-      alignItems: "center",
-      justifyContent: "center",
+    heroIcon: {
+      width: 160,
+      height: 160,
+      borderRadius: 36,
       shadowColor: "#1F469F",
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.22,
+      shadowOpacity: 0.18,
       shadowRadius: 16,
-      elevation: 5,
-    },
-    heroIconRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    },
-    heroIconPill: {
-      width: 62,
-      height: 62,
-      borderRadius: 18,
-      backgroundColor: "rgba(255,255,255,0.86)",
-      alignItems: "center",
-      justifyContent: "center",
+      elevation: 6,
     },
     title: {
       fontSize: 32,
