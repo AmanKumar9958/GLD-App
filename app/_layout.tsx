@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, Suspense } from "react";
 import BrandedLoader from "../components/BrandedLoader";
-
+import { useNotifications } from "../hooks/useNotifications";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -59,10 +59,15 @@ function AppShell() {
   );
 }
 
+
+
 function RootNavigator() {
   const { isAuthResolved } = useAuth();
   const { colors } = useTheme();
   const styles = createStyles(colors.background);
+  
+  // Initialize push notification listeners
+  useNotifications();
 
   useEffect(() => {
     // Hide native splash screen immediately so BrandedLoader is visible

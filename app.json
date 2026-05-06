@@ -16,6 +16,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
+      "googleServicesFile": "./google-services.json",
       "package": "com.solostackdev.gldinstitute",
       "versionCode": 5,
       "edgeToEdgeEnabled": true,

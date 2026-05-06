@@ -9,6 +9,7 @@ export interface DatabaseUser {
   photo_url: string | null;
   phone: string | null;
   role: "student" | "admin";
+  fcm_token?: string | null;
   created_at: string; // ISO timestamp
   updated_at: string;
 }
