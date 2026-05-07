@@ -328,9 +328,7 @@ export default function CourseDetailsScreen() {
           } as any);
         },
         onExit: () => {
-          if (isMounted.current) {
-            Alert.alert("Cancelled", "Payment was cancelled.");
-          }
+          // Silently handle cancellation
         },
       });
     } catch (err: any) {

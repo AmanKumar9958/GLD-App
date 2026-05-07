@@ -43,14 +43,16 @@ export async function fetchUserCourses(uid: string): Promise<UserCourse[]> {
     return [];
   }
 
-  return (data || []).map((item: any) => ({
-    id: item.course_id,
-    title: item.courses.title,
-    subtitle: item.courses.instructor_name,
-    image: item.courses.thumbnail_url || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80",
-    progress: item.progress,
-    state: item.state as CourseState,
-  }));
+  return (data || [])
+    .filter((item: any) => item.courses != null)
+    .map((item: any) => ({
+      id: item.course_id,
+      title: item.courses.title,
+      subtitle: item.courses.instructor_name || "Instructor",
+      image: item.courses.thumbnail_url || "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80",
+      progress: item.progress,
+      state: item.state as CourseState,
+    }));
 }
 
 export async function cacheUserCourses(
@@ -65,10 +67,14 @@ export async function getUserCoursesWithCache(uid: string): Promise<{
   fresh: UserCourse[];
 }> {
   const cached = await getCachedCourses(uid);
-  const fresh = await fetchUserCourses(uid);
-
-  if (fresh.length > 0) {
+  let fresh: UserCourse[] = [];
+  
+  try {
+    fresh = await fetchUserCourses(uid);
+    // Always update cache even if empty, to handle cases where all courses were deleted
     await cacheUserCourses(uid, fresh);
+  } catch (error) {
+    console.error("Error in getUserCoursesWithCache:", error);
   }
 
   return {

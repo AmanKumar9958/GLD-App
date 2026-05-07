@@ -99,6 +99,13 @@ export function startCashfreePayment(
     },
     onError(error: { code: string; message: string }, orderId: string) {
       CFPaymentGatewayService.removeCallback();
+      
+      if (error.code === 'action_cancelled') {
+        console.log(`Payment cancelled by user [${orderId}]`);
+        callbacks.onExit();
+        return;
+      }
+
       console.error(`Cashfree error [${orderId}]:`, error);
       callbacks.onError(error.code, error.message);
     },
