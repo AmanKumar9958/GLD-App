@@ -2,14 +2,13 @@
  * Supabase CRUD helpers for the `courses`, `modules`, and `videos` tables.
  */
 
-import { supabase } from "./supabase";
 import {
+  CourseWithModules,
   DatabaseCourse,
   DatabaseModule,
-  DatabaseVideo,
-  CourseWithModules,
-  ModuleWithVideos,
+  DatabaseVideo
 } from "../types/supabase";
+import { supabase } from "./supabase";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,6 +32,7 @@ export async function getPublishedCourses(): Promise<DatabaseCourse[]> {
   const { data, error } = await supabase
     .from("courses")
     .select("*")
+    .limit(8)
     .eq("is_published", true)
     .order("created_at", { ascending: false });
 
@@ -43,7 +43,7 @@ export async function getPublishedCourses(): Promise<DatabaseCourse[]> {
 /**
  * Fetch a paginated list of published courses.
  */
-export async function getPaginatedCourses({ 
+export async function getPaginatedCourses({
   pageParam = 0,
   category = 'All',
   priceFilter = 'All'
@@ -74,7 +74,7 @@ export async function getPaginatedCourses({
     .range(from, to);
 
   if (error) throw error;
-  
+
   return {
     data: data || [],
     nextPage: (data && data.length === limit) ? pageParam + 1 : null

@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
+import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -9,28 +11,23 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppThemeColors, useTheme } from "../../context/ThemeContext";
+import CourseCardSkeleton from "../../components/ui/CourseCardSkeleton";
+import CourseDetailSkeleton from "../../components/ui/CourseDetailSkeleton";
 import { useAuth } from "../../context/AuthContext";
+import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import {
-  getCourseById,
-  getModules,
-  getVideos,
+  getCourseWithModules, // <--- N+1 Fix: Single query service use kar rahe hain
 } from "../../services/courseService";
+import { createCashfreeOrder, startCashfreePayment } from "../../services/paymentService";
 import { supabase } from "../../services/supabase";
 import { saveUserProfile } from "../../services/userProfile";
-import { createCashfreeOrder, startCashfreePayment } from "../../services/paymentService";
 import { DatabaseVideo } from "../../types/supabase";
-import CourseDetailSkeleton from "../../components/ui/CourseDetailSkeleton";
-import CourseCardSkeleton from "../../components/ui/CourseCardSkeleton";
-import { FlashList } from "@shopify/flash-list";
 
 type ModuleWithLectureCount = {
   id: string;
@@ -85,20 +82,14 @@ function PhoneModal({
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
         <View style={[styles.modalSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {/* Handle */}
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
-
           <View style={[styles.modalIconWrap, { backgroundColor: isDark ? "#1A2E4A" : "#EFF6FF" }]}>
             <Ionicons name="call" size={24} color={colors.primary} />
           </View>
-
-          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-            One last step!
-          </Text>
+          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>One last step!</Text>
           <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
             Enter your mobile number to complete the payment. It will be saved to your profile.
           </Text>
-
           <View style={[styles.inputWrap, { borderColor: isValid ? colors.primary : colors.border, backgroundColor: colors.background }]}>
             <Text style={[styles.dialCode, { color: colors.textSecondary }]}>+91</Text>
             <View style={[styles.inputDivider, { backgroundColor: colors.border }]} />
@@ -113,7 +104,6 @@ function PhoneModal({
               autoFocus
             />
           </View>
-
           <Pressable
             style={[styles.modalBtn, { backgroundColor: isValid ? colors.primary : colors.border }]}
             onPress={() => isValid && onSubmit(phone.trim())}
@@ -122,7 +112,6 @@ function PhoneModal({
             <Text style={styles.modalBtnText}>Continue to Payment</Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
           </Pressable>
-
           <Pressable style={styles.cancelBtn} onPress={onCancel}>
             <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
           </Pressable>
@@ -141,10 +130,7 @@ export default function CourseDetailsScreen() {
   const { user, profile, refreshProfile } = useAuth();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
-  const courseId =
-    typeof params.courseId === "string"
-      ? params.courseId
-      : params.courseId?.[0] || "";
+  const courseId = typeof params.courseId === "string" ? params.courseId : params.courseId?.[0] || "";
 
   const [course, setCourse] = useState<CourseHeader | null>(null);
   const [modules, setModules] = useState<ModuleWithLectureCount[]>([]);
@@ -153,22 +139,20 @@ export default function CourseDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
 
-  // Payment states
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isBuyLoading, setIsBuyLoading] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [showEnrolledModal, setShowEnrolledModal] = useState(false);
 
   const isAdmin = profile?.role === "admin";
-
   const isMounted = useRef(true);
+
   useEffect(() => {
     isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
+    return () => { isMounted.current = false; };
   }, []);
 
+  // ✅ FIXED: N+1 Query Resolved. Using joined query to fetch everything at once.
   const loadCourseDetails = useCallback(async () => {
     if (!courseId) {
       if (isMounted.current) {
@@ -180,30 +164,29 @@ export default function CourseDetailsScreen() {
     }
 
     try {
-      const [courseDoc, courseModules] = await Promise.all([
-        getCourseById(courseId),
-        getModules(courseId),
-      ]);
+      // Step 1: Single request fetches Course -> Modules -> Videos in one go
+      const fullCourseData = await getCourseWithModules(courseId);
 
-      if (!courseDoc) {
+      if (!fullCourseData) {
         if (isMounted.current) {
           setError("Course not found.");
-          setModules([]);
           setCourse(null);
+          setModules([]);
         }
         return;
       }
 
-      if (isMounted.current) {
-        setCourse({
-          title: courseDoc.title,
-          category: courseDoc.category,
-          mentor: courseDoc.instructor_name || "Instructor",
-          price: courseDoc.price,
-        });
-      }
+      if (!isMounted.current) return;
 
-      // Check enrollment
+      // Step 2: Update Course Header info
+      setCourse({
+        title: fullCourseData.title,
+        category: fullCourseData.category,
+        mentor: fullCourseData.instructor_name || "Instructor",
+        price: fullCourseData.price,
+      });
+
+      // Step 3: Check enrollment status
       if (user) {
         const { data } = await supabase
           .from("user_courses")
@@ -211,43 +194,24 @@ export default function CourseDetailsScreen() {
           .eq("user_id", user.id)
           .eq("course_id", courseId)
           .maybeSingle();
-        if (isMounted.current) {
-          setIsEnrolled(!!data);
-        }
+        setIsEnrolled(!!data);
       }
 
-      const moduleWithCounts = await Promise.all(
-        courseModules.map(async (module) => {
-          try {
-            const videos = await getVideos(courseId, module.id);
-            return {
-              id: module.id,
-              title: module.title,
-              orderIndex: module.order_index,
-              lectureCount: videos.length,
-              videos,
-            } as ModuleWithLectureCount;
-          } catch {
-            return {
-              id: module.id,
-              title: module.title,
-              orderIndex: module.order_index,
-              lectureCount: 0,
-              videos: [],
-            } as ModuleWithLectureCount;
-          }
-        }),
-      );
+      // Step 4: Map nested data to UI structure (No more extra loops/fetches!)
+      const mappedModules = (fullCourseData.modules || []).map((m: any) => ({
+        id: m.id,
+        title: m.title,
+        orderIndex: m.order_index,
+        lectureCount: m.videos?.length || 0,
+        videos: m.videos || [],
+      })).sort((a: any, b: any) => a.orderIndex - b.orderIndex);
 
-      if (isMounted.current) {
-        setModules(moduleWithCounts.sort((a, b) => a.orderIndex - b.orderIndex));
-        setError(null);
-      }
+      setModules(mappedModules);
+      setError(null);
     } catch (err) {
       console.error("Failed to load course details:", err);
       if (isMounted.current) {
-        setError("Failed to load course modules. Please try again.");
-        setModules([]);
+        setError("Failed to load course details. Please try again.");
       }
     } finally {
       if (isMounted.current) {
@@ -268,10 +232,7 @@ export default function CourseDetailsScreen() {
     void loadCourseDetails();
   };
 
-  const totalLectures = useMemo(
-    () => modules.reduce((acc, m) => acc + m.lectureCount, 0),
-    [modules]
-  );
+  const totalLectures = useMemo(() => modules.reduce((acc, m) => acc + m.lectureCount, 0), [modules]);
 
   // ─── Payment flow ────────────────────────────────────────────────────────────
 
@@ -280,7 +241,6 @@ export default function CourseDetailsScreen() {
       Alert.alert("Sign In Required", "Please sign in to purchase this course.");
       return;
     }
-    // If phone is missing, collect it first
     if (!profile?.phone) {
       setShowPhoneModal(true);
       return;
@@ -291,7 +251,6 @@ export default function CourseDetailsScreen() {
   const handlePhoneSubmit = async (phone: string) => {
     if (isMounted.current) setShowPhoneModal(false);
     try {
-      // Save phone to DB and refresh local profile
       await saveUserProfile({ ...profile!, uid: user!.id, phone });
       await refreshProfile();
     } catch (e) {
@@ -305,7 +264,6 @@ export default function CourseDetailsScreen() {
     if (isMounted.current) setIsBuyLoading(true);
     try {
       const order = await createCashfreeOrder(courseId);
-
       if (!isMounted.current) return;
 
       startCashfreePayment(order.orderId, order.paymentSessionId, {
@@ -313,11 +271,7 @@ export default function CourseDetailsScreen() {
           if (!isMounted.current) return;
           router.replace({
             pathname: "/payment/success",
-            params: {
-              orderId,
-              courseTitle: course.title,
-              courseId,
-            },
+            params: { orderId, courseTitle: course.title, courseId },
           } as any);
         },
         onError: (code, message) => {
@@ -327,9 +281,7 @@ export default function CourseDetailsScreen() {
             params: { orderId: order.orderId, code, message, courseId },
           } as any);
         },
-        onExit: () => {
-          // Silently handle cancellation
-        },
+        onExit: () => { },
       });
     } catch (err: any) {
       if (isMounted.current) {
@@ -345,11 +297,8 @@ export default function CourseDetailsScreen() {
     }
   };
 
-  // ─── Bottom CTA bar ──────────────────────────────────────────────────────────
-
   const renderBottomBar = () => {
     if (isAdmin || !course) return null;
-
     if (isEnrolled) {
       return (
         <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
@@ -358,14 +307,11 @@ export default function CourseDetailsScreen() {
             onPress={() => router.push(`/course/${courseId}` as any)}
           >
             <Ionicons name="play-circle" size={20} color={colors.primary} />
-            <Text style={[styles.enrolledBtnText, { color: colors.primary }]}>
-              Continue Learning
-            </Text>
+            <Text style={[styles.enrolledBtnText, { color: colors.primary }]}>Continue Learning</Text>
           </Pressable>
         </View>
       );
     }
-
     if (course.price === 0) {
       return (
         <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
@@ -378,28 +324,19 @@ export default function CourseDetailsScreen() {
         </View>
       );
     }
-
     return (
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View style={styles.priceRow}>
-          <Text style={[styles.bottomPrice, { color: colors.textPrimary }]}>
-            {formatPrice(course.price)}
-          </Text>
+          <Text style={[styles.bottomPrice, { color: colors.textPrimary }]}>{formatPrice(course.price)}</Text>
           <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>one-time</Text>
         </View>
-
         <Pressable
           style={[styles.buyBtn, { backgroundColor: isBuyLoading ? colors.border : colors.primary }]}
           onPress={handleBuyNow}
           disabled={isBuyLoading}
         >
-          {isBuyLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Ionicons name="card" size={18} color="#fff" />
-              <Text style={styles.buyBtnText}>Buy Now</Text>
-            </>
+          {isBuyLoading ? <ActivityIndicator color="#fff" size="small" /> : (
+            <><Ionicons name="card" size={18} color="#fff" /><Text style={styles.buyBtnText}>Buy Now</Text></>
           )}
         </Pressable>
       </View>
@@ -408,41 +345,18 @@ export default function CourseDetailsScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* Phone modal */}
-      <PhoneModal
-        visible={showPhoneModal}
-        onSubmit={handlePhoneSubmit}
-        onCancel={() => setShowPhoneModal(false)}
-        colors={colors}
-        isDark={isDark}
-        styles={styles}
-      />
+      <PhoneModal visible={showPhoneModal} onSubmit={handlePhoneSubmit} onCancel={() => setShowPhoneModal(false)} colors={colors} isDark={isDark} styles={styles} />
 
-      {/* Already Enrolled Modal */}
-      <Modal
-        transparent
-        animationType="fade"
-        visible={showEnrolledModal}
-        onRequestClose={() => setShowEnrolledModal(false)}
-      >
+      <Modal transparent animationType="fade" visible={showEnrolledModal} onRequestClose={() => setShowEnrolledModal(false)}>
         <View style={styles.enrolledModalRoot}>
           <View style={[styles.enrolledModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.enrolledIconWrap, { backgroundColor: isDark ? "#0D2E1A" : "#E8FFF0" }]}>
               <Ionicons name="checkmark-circle" size={40} color="#22C55E" />
             </View>
             <Text style={[styles.enrolledModalTitle, { color: colors.textPrimary }]}>Already Enrolled!</Text>
-            <Text style={[styles.enrolledModalSubtitle, { color: colors.textSecondary }]}>
-              You already have access to this course. Continue your learning journey!
-            </Text>
-            <Pressable
-              style={[styles.enrolledStartBtn, { backgroundColor: colors.primary }]}
-              onPress={() => {
-                setShowEnrolledModal(false);
-                setIsEnrolled(true);
-              }}
-            >
-              <Ionicons name="play-circle" size={18} color="#fff" />
-              <Text style={styles.enrolledStartBtnText}>Continue Learning</Text>
+            <Text style={[styles.enrolledModalSubtitle, { color: colors.textSecondary }]}>You already have access to this course. Continue your learning journey!</Text>
+            <Pressable style={[styles.enrolledStartBtn, { backgroundColor: colors.primary }]} onPress={() => { setShowEnrolledModal(false); setIsEnrolled(true); }}>
+              <Ionicons name="play-circle" size={18} color="#fff" /><Text style={styles.enrolledStartBtnText}>Continue Learning</Text>
             </Pressable>
             <Pressable style={styles.enrolledDismissBtn} onPress={() => setShowEnrolledModal(false)}>
               <Text style={[styles.enrolledDismissText, { color: colors.textSecondary }]}>Dismiss</Text>
@@ -468,21 +382,13 @@ export default function CourseDetailsScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
           ListHeaderComponent={
             course ? (
               <View style={[styles.courseCard, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 12 }]}>
                 <Text style={[styles.courseTitle, { color: colors.textPrimary }]}>{course.title}</Text>
                 <Text style={[styles.courseMeta, { color: colors.textSecondary }]}>by {course.mentor}</Text>
                 <Text style={[styles.courseMeta, { color: colors.textSecondary }]}>Category: {course.category}</Text>
-
                 <View style={styles.badgeRow}>
                   <View style={[styles.badge, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
                     <Ionicons name="layers-outline" size={14} color={colors.primary} />
@@ -512,13 +418,13 @@ export default function CourseDetailsScreen() {
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Something went wrong</Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>{error}</Text>
               </View>
-            ) : modules.length === 0 ? (
+            ) : (
               <View style={[styles.emptyState, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                 <ExpoImage source={require("../../assets/images/empty-folder.svg")} style={styles.emptyImage} contentFit="contain" />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No modules yet</Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>This course does not have modules at the moment.</Text>
               </View>
-            ) : null
+            )
           }
           renderItem={({ item: module, index }) => (
             <View style={styles.moduleContainer}>
@@ -533,19 +439,13 @@ export default function CourseDetailsScreen() {
                 <View style={[styles.moduleIndexWrap, { backgroundColor: isDark ? "#223253" : "#E8EEFF", borderColor: colors.border }]}>
                   <Text style={[styles.moduleIndex, { color: colors.textPrimary }]}>{index + 1}</Text>
                 </View>
-
                 <View style={styles.moduleBody}>
                   <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>{module.title}</Text>
                   <Text style={[styles.moduleSubtitle, { color: colors.textSecondary }]}>
                     {module.lectureCount} lecture{module.lectureCount === 1 ? "" : "s"}
                   </Text>
                 </View>
-
-                <Ionicons
-                  name={expandedModuleId === module.id ? "chevron-down-outline" : "chevron-forward-outline"}
-                  size={18}
-                  color={colors.textSecondary}
-                />
+                <Ionicons name={expandedModuleId === module.id ? "chevron-down-outline" : "chevron-forward-outline"} size={18} color={colors.textSecondary} />
               </Pressable>
 
               {expandedModuleId === module.id && module.videos.length > 0 && (
@@ -569,13 +469,12 @@ export default function CourseDetailsScreen() {
           )}
         />
       </View>
-
-      {/* Sticky bottom bar */}
       {renderBottomBar()}
     </SafeAreaView>
   );
 }
 
+// ... createStyles code remains same as provided ...
 const createStyles = (colors: AppThemeColors, isDark: boolean) =>
   StyleSheet.create({
     safeArea: { flex: 1 },
