@@ -82,43 +82,30 @@ export async function getPaginatedCourses({
 }
 
 /**
- * Subscribe to all published courses and receive live updates.
- * Returns an unsubscribe function.
+ * Fetch top courses for the home screen to avoid fetching all courses into memory
+ * and avoid N+1 queries for module counts.
  */
-export function subscribeToPublishedCourses(
-  onData: (courses: DatabaseCourse[]) => void,
-  onError?: (error: Error) => void
-): () => void {
-  // Initial fetch
-  getPublishedCourses().then(onData).catch(onError);
+export async function getHomeCoursesData() {
+  const { data, error } = await supabase
+    .from("courses")
+    .select("*, modules(id)")
+    .eq("is_published", true)
+    .limit(20);
 
-  // Subscribe to changes
-  // Use a unique channel name to avoid "callbacks after subscribe" errors if multiple components subscribe
-  const channelId = `published-courses-${Date.now()}`;
-  const channel = supabase
-    .channel(channelId)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "courses" },
-      async (payload) => {
-        // payload can be used for granular updates, but for now we re-fetch to keep it simple and consistent with initial load
-        try {
-          const courses = await getPublishedCourses();
-          onData(courses);
-        } catch (err) {
-          onError?.(err as Error);
-        }
-      }
-    )
-    .subscribe((status) => {
-      if (status === "CHANNEL_ERROR") {
-        console.warn("Supabase realtime channel error. Live updates may not work.");
-      }
-    });
+  if (error) throw error;
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  const courses = data || [];
+
+  const byNewest = [...courses].sort((a, b) => {
+    const bTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const aTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (bTime === aTime) return a.title.localeCompare(b.title);
+    return bTime - aTime;
+  }).slice(0, 8);
+
+  const byPriceDesc = [...courses].sort((a, b) => b.price - a.price).slice(0, 8);
+
+  return { recommended: byNewest, popular: byPriceDesc };
 }
 
 /**

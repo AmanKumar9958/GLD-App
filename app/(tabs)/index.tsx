@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Pressable,
   ScrollView,
@@ -25,8 +26,7 @@ import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useQuery } from '@tanstack/react-query';
 import {
-  getModules,
-  getPublishedCourses,
+  getHomeCoursesData,
 } from "../../services/courseService";
 import {
   getUserProfileWithCache,
@@ -145,46 +145,23 @@ export default function HomeScreen() {
   const { data: coursesData, isLoading: isCoursesLoading, error: coursesErrorValue } = useQuery({
     queryKey: ['homeCourses'],
     queryFn: async () => {
-      const courses = await getPublishedCourses();
+      const { recommended, popular } = await getHomeCoursesData();
       
-      const byNewest = [...courses].sort((a, b) => {
-        const bTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const aTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        if (bTime === aTime) return a.title.localeCompare(b.title);
-        return bTime - aTime;
-      });
-
-      const byPriceDesc = [...courses].sort((a, b) => b.price - a.price);
-
-      const mapHomeCourses = async (source: DatabaseCourse[]): Promise<HomeCourse[]> => {
-        const selected = source.slice(0, HOME_SECTION_SIZE);
-        return Promise.all(
-          selected.map(async (course) => {
-            let lessons = 0;
-            try {
-              const modules = await getModules(course.id);
-              lessons = modules.length;
-            } catch {
-              lessons = 0;
-            }
-            return {
-              id: course.id,
-              title: course.title,
-              mentor: course.instructor_name || "Instructor",
-              lessons,
-              price: `₹${course.price}`,
-              image: course.thumbnail_url || FALLBACK_IMAGE,
-            };
-          })
-        );
+      const mapHomeCourses = (source: any[]): HomeCourse[] => {
+        return source.map((course) => ({
+          id: course.id,
+          title: course.title,
+          mentor: course.instructor_name || "Instructor",
+          lessons: course.modules?.length || 0,
+          price: `₹${course.price}`,
+          image: course.thumbnail_url || FALLBACK_IMAGE,
+        }));
       };
 
-      const [recommended, popular] = await Promise.all([
-        mapHomeCourses(byNewest),
-        mapHomeCourses(byPriceDesc)
-      ]);
-
-      return { recommended, popular };
+      return { 
+        recommended: mapHomeCourses(recommended), 
+        popular: mapHomeCourses(popular) 
+      };
     }
   });
 
@@ -441,48 +418,30 @@ export default function HomeScreen() {
         </View>
 
         {isCoursesLoading ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          >
-            {[1, 2, 3].map((key) => (
-              <HomeCourseSkeleton key={key} styles={styles} />
-            ))}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+            {[1, 2, 3].map((key) => <HomeCourseSkeleton key={key} styles={styles} />)}
           </ScrollView>
         ) : coursesError ? (
           <View style={styles.emptyStateContainer}>
-            <ExpoImage
-              source={require("../../assets/images/404-not-found.svg")}
-              style={styles.emptyStateImage}
-              contentFit="contain"
-            />
+            <ExpoImage source={require("../../assets/images/404-not-found.svg")} style={styles.emptyStateImage} contentFit="contain" />
             <Text style={styles.sectionStatusText}>{coursesError}</Text>
           </View>
         ) : recommendedCourses.length === 0 ? (
           <View style={styles.emptyStateContainer}>
-            <ExpoImage
-              source={require("../../assets/images/empty-folder.svg")}
-              style={styles.emptyStateImage}
-              contentFit="contain"
-            />
+            <ExpoImage source={require("../../assets/images/empty-folder.svg")} style={styles.emptyStateImage} contentFit="contain" />
             <Text style={styles.sectionStatusText}>No recommended courses found.</Text>
           </View>
         ) : (
-          <ScrollView
+          <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
-          >
-            {recommendedCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                styles={styles}
-                onPress={() => navigateToAllCourses()}
-              />
-            ))}
-          </ScrollView>
+            data={recommendedCourses}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <CourseCard course={item} styles={styles} onPress={() => navigateToAllCourses()} />
+            )}
+          />
         )}
 
         <View style={styles.sectionHeader}>
@@ -493,39 +452,25 @@ export default function HomeScreen() {
         </View>
 
         {isCoursesLoading ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          >
-            {[1, 2, 3].map((key) => (
-              <HomeCourseSkeleton key={key} styles={styles} />
-            ))}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+            {[1, 2, 3].map((key) => <HomeCourseSkeleton key={key} styles={styles} />)}
           </ScrollView>
         ) : coursesError ? null : popularCourses.length === 0 ? (
           <View style={styles.emptyStateContainer}>
-            <ExpoImage
-              source={require("../../assets/images/empty-folder.svg")}
-              style={styles.emptyStateImage}
-              contentFit="contain"
-            />
+            <ExpoImage source={require("../../assets/images/empty-folder.svg")} style={styles.emptyStateImage} contentFit="contain" />
             <Text style={styles.sectionStatusText}>No popular courses found.</Text>
           </View>
         ) : (
-          <ScrollView
+          <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
-          >
-            {popularCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                styles={styles}
-                onPress={() => navigateToAllCourses()}
-              />
-            ))}
-          </ScrollView>
+            data={popularCourses}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <CourseCard course={item} styles={styles} onPress={() => navigateToAllCourses()} />
+            )}
+          />
         )}
       </ScrollView>
     </SafeAreaView>
