@@ -6,8 +6,8 @@ import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { mmkv } from "../utils/storage";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, Suspense } from "react";
 import BrandedLoader from "../components/BrandedLoader";
@@ -23,8 +23,12 @@ const queryClient = new QueryClient({
   },
 });
 
-const asyncStoragePersister = createAsyncStoragePersister({
-  storage: AsyncStorage,
+const syncStoragePersister = createSyncStoragePersister({
+  storage: {
+    getItem: (key) => mmkv.getString(key) ?? null,
+    setItem: (key, value) => mmkv.set(key, value),
+    removeItem: (key) => mmkv.delete(key),
+  },
 });
 
 export default function RootLayout() {
@@ -49,7 +53,7 @@ function AppShell() {
         <WishlistProvider>
           <PersistQueryClientProvider
             client={queryClient}
-            persistOptions={{ persister: asyncStoragePersister }}
+            persistOptions={{ persister: syncStoragePersister }}
           >
             <RootNavigator />
           </PersistQueryClientProvider>
