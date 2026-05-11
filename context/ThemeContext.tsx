@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { mmkv } from "../utils/storage";
 import React, {
     createContext,
     ReactNode,
@@ -75,9 +75,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const loadTheme = async () => {
+    const loadTheme = () => {
       try {
-        const stored = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        const stored = mmkv.getString(THEME_STORAGE_KEY);
 
         if (!active) {
           return;
@@ -105,9 +105,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const persistTheme = async () => {
+    const persistTheme = () => {
       try {
-        await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
+        mmkv.set(THEME_STORAGE_KEY, mode);
       } catch {
         // Keep UI responsive even if persistence fails.
       }
