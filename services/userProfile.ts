@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { mmkv } from "../utils/storage";
 import { supabase } from "./supabase";
 import { DatabaseUser } from "../types/supabase";
 
@@ -29,7 +29,7 @@ function mapDatabaseUserToProfile(dbUser: DatabaseUser): UserProfile {
 export async function getCachedUserProfile(
   uid: string
 ): Promise<UserProfile | null> {
-  const cache = await AsyncStorage.getItem(getUserCacheKey(uid));
+  const cache = mmkv.getString(getUserCacheKey(uid));
   if (!cache) return null;
   return JSON.parse(cache) as UserProfile;
 }
@@ -49,7 +49,7 @@ export async function fetchUserProfile(
 }
 
 export async function cacheUserProfile(profile: UserProfile): Promise<void> {
-  await AsyncStorage.setItem(
+  mmkv.set(
     getUserCacheKey(profile.uid),
     JSON.stringify(profile)
   );

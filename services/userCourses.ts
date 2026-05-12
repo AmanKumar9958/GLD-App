@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { mmkv } from "../utils/storage";
 import { supabase } from "./supabase";
 
 export type CourseState = "ongoing" | "completed";
@@ -17,7 +17,7 @@ function getCourseCacheKey(uid: string): string {
 }
 
 export async function getCachedCourses(uid: string): Promise<UserCourse[]> {
-  const cache = await AsyncStorage.getItem(getCourseCacheKey(uid));
+  const cache = mmkv.getString(getCourseCacheKey(uid));
   if (!cache) return [];
   return JSON.parse(cache) as UserCourse[];
 }
@@ -59,7 +59,7 @@ export async function cacheUserCourses(
   uid: string,
   courses: UserCourse[]
 ): Promise<void> {
-  await AsyncStorage.setItem(getCourseCacheKey(uid), JSON.stringify(courses));
+  mmkv.set(getCourseCacheKey(uid), JSON.stringify(courses));
 }
 
 export async function getUserCoursesWithCache(uid: string): Promise<{

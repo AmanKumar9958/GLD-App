@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { mmkv } from "../utils/storage";
 import React, {
   createContext,
   ReactNode,
@@ -54,7 +54,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
     try {
       // 1. Load from Cache first
-      const cacheRaw = await AsyncStorage.getItem(getStorageKey(user.id));
+      const cacheRaw = mmkv.getString(getStorageKey(user.id));
       if (cacheRaw) {
         setWishlist(JSON.parse(cacheRaw));
       }
@@ -87,7 +87,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       }));
 
       setWishlist(syncedWishlist);
-      await AsyncStorage.setItem(getStorageKey(user.id), JSON.stringify(syncedWishlist));
+      await mmkv.set(getStorageKey(user.id), JSON.stringify(syncedWishlist));
     } catch (error) {
       console.error("Error loading wishlist:", error);
     }
@@ -127,7 +127,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     const updated = exists 
       ? wishlist.filter((item) => item.id !== course.id)
       : [course, ...wishlist];
-    await AsyncStorage.setItem(getStorageKey(user.id), JSON.stringify(updated));
+    mmkv.set(getStorageKey(user.id), JSON.stringify(updated));
   }, [user?.id, wishlist]);
 
   const removeFromWishlist = useCallback(async (courseId: string) => {
@@ -142,7 +142,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       .eq("course_id", courseId);
 
     const updated = wishlist.filter((course) => course.id !== courseId);
-    await AsyncStorage.setItem(getStorageKey(user.id), JSON.stringify(updated));
+    mmkv.set(getStorageKey(user.id), JSON.stringify(updated));
   }, [user?.id, wishlist]);
 
   const value = useMemo(
