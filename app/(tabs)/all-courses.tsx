@@ -12,12 +12,13 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View
 } from "react-native";
-import { ScrollView } from "react-native-reanimated/lib/typescript/Animated";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
