@@ -1,9 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +18,7 @@ import {
 } from "../../services/userCourses";
 import CourseCardSkeleton from "../../components/ui/CourseCardSkeleton";
 import { FlashList } from "@shopify/flash-list";
+import { useQuery } from "@tanstack/react-query";
 
 type FilterKey = "all" | "ongoing" | "completed";
 
@@ -36,53 +35,17 @@ export default function CoursesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
-  const [courses, setCourses] = useState<UserCourse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const loadCourses = async () => {
-      const uid = user?.id;
-
-      if (!uid) {
-        if (mounted) {
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      try {
-        const { cached, fresh } = await getUserCoursesWithCache(uid);
-
-        if (!mounted) {
-          return;
-        }
-
-        if (cached.length > 0) {
-          setCourses(cached);
-        }
-
-        if (fresh.length > 0) {
-          setCourses(fresh);
-        }
-      } catch {
-        if (!mounted) {
-          return;
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadCourses();
-
-    return () => {
-      mounted = false;
-    };
-  }, [user?.id]);
+  const { data: courses = [], isLoading } = useQuery({
+    queryKey: ['userCourses', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { fresh } = await getUserCoursesWithCache(user.id);
+      return fresh;
+    },
+    enabled: !!user?.id,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
   const filteredCourses = useMemo(() => {
     if (activeFilter === "all") {
@@ -178,9 +141,11 @@ export default function CoursesScreen() {
                 style={styles.courseRow}
                 onPress={() => router.push(`/course/${course.id}` as any)}
               >
-                <Image
+                <ExpoImage
                   source={{ uri: course.image }}
                   style={styles.courseImage}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
 
                 <View style={styles.courseBody}>

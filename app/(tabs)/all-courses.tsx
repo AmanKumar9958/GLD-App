@@ -2,17 +2,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  FlatList,
+} from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
@@ -22,18 +27,13 @@ import {
   useWishlist,
 } from "../../context/WishlistContext";
 import {
-  getModules,
   getPaginatedCourses,
+  getCourseCategories,
 } from "../../services/courseService";
 import { supabase } from "../../services/supabase";
 import { saveUserProfile } from "../../services/userProfile";
 import { createCashfreeOrder, startCashfreePayment } from "../../services/paymentService";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  TextInput,
-  Alert,
-} from "react-native";
+import { FlashList } from "@shopify/flash-list";
 
 type AllCourse = {
   id: string;
@@ -141,9 +141,6 @@ export default function AllCoursesScreen() {
     useState<CategoryFilter>(initialCategory);
   const [selectedPrice, setSelectedPrice] = useState<PriceFilter>("All");
   const [showFilters, setShowFilters] = useState(false);
-  const [moduleCountByCourseId, setModuleCountByCourseId] = useState<
-    Record<string, number>
-  >({});
   const [isModulePopupVisible, setIsModulePopupVisible] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<AllCourse | null>(null);
   const [selectedCourseModules, setSelectedCourseModules] = useState<string[]>(
@@ -165,43 +162,14 @@ export default function AllCoursesScreen() {
     };
   }, []);
 
-  const loadModuleCounts = async (courseIds: string[]) => {
-    const missingIds = courseIds.filter(id => !(id in moduleCountByCourseId));
-    if (missingIds.length === 0) return;
-
-    const statsEntries = await Promise.all(
-      missingIds.map(async (courseId) => {
-        try {
-          const modules = await getModules(courseId);
-          return [courseId, modules.length] as const;
-        } catch {
-          return [courseId, 0] as const;
-        }
-      }),
-    );
-
-    if (isMounted.current) {
-      setModuleCountByCourseId((previous) => {
-        const next = { ...previous };
-        for (const [courseId, count] of statsEntries) {
-          next[courseId] = count;
-        }
-        return next;
-      });
-    }
-  };
-
   useEffect(() => {
     setSelectedCategory(initialCategory);
   }, [initialCategory]);
 
   const { data: allCategories = [] } = useQuery({
     queryKey: ['courseCategories'],
-    queryFn: async () => {
-      const { data } = await supabase.from('courses').select('category').eq('is_published', true);
-      const set = new Set(data?.map(d => d.category));
-      return Array.from(set).filter(Boolean) as string[];
-    }
+    queryFn: getCourseCategories,
+    staleTime: 1000 * 60 * 10, // 10 minutes — categories rarely change
   });
 
   const {
@@ -233,11 +201,16 @@ export default function AllCoursesScreen() {
     })));
   }, [data]);
 
-  useEffect(() => {
-    if (courses.length > 0) {
-      void loadModuleCounts(courses.map(c => c.id));
-    }
-  }, [courses]);
+  // ✅ Derive module counts from the embedded query data — zero extra DB calls
+  const moduleCountByCourseId = useMemo(() => {
+    const map: Record<string, number> = {};
+    data?.pages.forEach((page) => {
+      page.data.forEach((c) => {
+        map[c.id] = (c.modules as { id: string }[] | undefined)?.length ?? 0;
+      });
+    });
+    return map;
+  }, [data]);
 
   const categoryFilters = useMemo<CategoryFilter[]>(() => {
     const set = new Set(allCategories);
@@ -419,10 +392,14 @@ export default function AllCoursesScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
-          style={styles.screen}
+        <FlashList
+          data={isCoursesLoading ? [] : courses}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={128}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
+          onEndReachedThreshold={0.4}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -432,173 +409,107 @@ export default function AllCoursesScreen() {
               progressBackgroundColor={colors.surface}
             />
           }
-        >
-          {showFilters ? (
-            <View style={styles.filtersCard}>
-              <Text style={styles.filtersHeading}>Category</Text>
-              <View style={styles.filterRow}>
-                {categoryFilters.map((filter) => {
-                  const isSelected = selectedCategory === filter;
-
-                  return (
+          ListHeaderComponent={
+            showFilters ? (
+              <View style={[styles.filtersCard, { marginBottom: 12 }]}>
+                <Text style={styles.filtersHeading}>Category</Text>
+                <View style={styles.filterRow}>
+                  {categoryFilters.map((filter) => (
                     <Pressable
                       key={filter}
-                      style={[
-                        styles.filterChip,
-                        isSelected && styles.filterChipSelected,
-                      ]}
+                      style={[styles.filterChip, selectedCategory === filter && styles.filterChipSelected]}
                       onPress={() => setSelectedCategory(filter)}
                     >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          isSelected && styles.filterChipTextSelected,
-                        ]}
-                      >
+                      <Text style={[styles.filterChipText, selectedCategory === filter && styles.filterChipTextSelected]}>
                         {filter}
                       </Text>
                     </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.filtersHeading}>Price</Text>
-              <View style={styles.filterRow}>
-                {priceFilters.map((filter) => {
-                  const isSelected = selectedPrice === filter;
-
-                  return (
+                  ))}
+                </View>
+                <Text style={styles.filtersHeading}>Price</Text>
+                <View style={styles.filterRow}>
+                  {priceFilters.map((filter) => (
                     <Pressable
                       key={filter}
-                      style={[
-                        styles.filterChip,
-                        isSelected && styles.filterChipSelected,
-                      ]}
+                      style={[styles.filterChip, selectedPrice === filter && styles.filterChipSelected]}
                       onPress={() => setSelectedPrice(filter)}
                     >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          isSelected && styles.filterChipTextSelected,
-                        ]}
-                      >
+                      <Text style={[styles.filterChipText, selectedPrice === filter && styles.filterChipTextSelected]}>
                         {filter}
                       </Text>
                     </Pressable>
-                  );
-                })}
+                  ))}
+                </View>
               </View>
-            </View>
-          ) : null}
-
-          {isCoursesLoading
-            ? Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
-              <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
-            ))
-            : null}
-
-          {!isCoursesLoading && fetchError ? (
-            <View style={styles.emptyState}>
-              <ExpoImage
-                source={require("../../assets/images/404-not-found.svg")}
-                style={styles.emptyImage}
-                contentFit="contain"
-              />
-              <Text style={styles.emptyTitle}>Something went wrong</Text>
-              <Text style={styles.emptySubtitle}>{fetchError}</Text>
-            </View>
-          ) : null}
-
-          {!isCoursesLoading && !fetchError && filteredCourses.length === 0 ? (
-            <View style={styles.emptyState}>
-              <ExpoImage
-                source={require("../../assets/images/empty-folder.svg")}
-                style={styles.emptyImage}
-                contentFit="contain"
-              />
-              <Text style={styles.emptyTitle}>No matching courses</Text>
-              <Text style={styles.emptySubtitle}>
-                Try changing category or price filters.
-              </Text>
-            </View>
-          ) : null}
-
-          {!isCoursesLoading
-            ? visibleCourses.map((course) => (
-              <Pressable
-                key={course.id}
-                style={styles.courseCard}
-                onPress={() => void openModulesPopup(course)}
-              >
-                <Image
-                  source={{ uri: course.image }}
-                  style={styles.courseImage}
-                />
-
-                <View style={styles.courseContent}>
-                  <View style={styles.titleRow}>
-                    <Text style={styles.courseTitle} numberOfLines={1}>
-                      {course.title}
-                    </Text>
-                    <Text style={styles.priceTag}>
-                      {formatPrice(course.price)}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.mentorText} numberOfLines={1}>
-                    by {course.mentor}
-                  </Text>
-
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name={getCategoryIcon(course.category)}
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.metaText}>{course.category}</Text>
-                    </View>
-
-                    <View style={styles.metaItem}>
-                      <Ionicons
-                        name="layers-outline"
-                        size={14}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.secondaryMetaText}>
-                        {moduleCountByCourseId[course.id] ?? 0} modules
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </Pressable>
-            ))
-            : null}
-
-          {!isCoursesLoading && hasMoreCourses ? (
+            ) : null
+          }
+          ListEmptyComponent={
+            isCoursesLoading ? (
+              <>
+                {Array.from({ length: COURSES_PAGE_SIZE }, (_, idx) => (
+                  <CourseSkeletonCard key={idx + 1} id={idx + 1} styles={styles} />
+                ))}
+              </>
+            ) : fetchError ? (
+              <View style={styles.emptyState}>
+                <ExpoImage source={require("../../assets/images/404-not-found.svg")} style={styles.emptyImage} contentFit="contain" />
+                <Text style={styles.emptyTitle}>Something went wrong</Text>
+                <Text style={styles.emptySubtitle}>{fetchError}</Text>
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <ExpoImage source={require("../../assets/images/empty-folder.svg")} style={styles.emptyImage} contentFit="contain" />
+                <Text style={styles.emptyTitle}>No matching courses</Text>
+                <Text style={styles.emptySubtitle}>Try changing category or price filters.</Text>
+              </View>
+            )
+          }
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : !isCoursesLoading && courses.length > 0 && !hasNextPage ? (
+              <View style={styles.noMoreWrap}>
+                <Text style={styles.noMoreText}>No more courses</Text>
+              </View>
+            ) : null
+          }
+          renderItem={({ item: course }) => (
             <Pressable
-              style={[
-                styles.showMoreButton,
-                isLoadingMore && styles.showMoreDisabled,
-              ]}
-              onPress={handleShowMore}
-              disabled={isLoadingMore}
+              style={[styles.courseCard, { marginBottom: 12 }]}
+              onPress={() => void openModulesPopup(course)}
             >
-              {isLoadingMore ? (
-                <View style={styles.loadingMoreRow}>
-                  <ActivityIndicator size="small" color={colors.white} />
-                  <Text style={styles.showMoreButtonText}>Loading...</Text>
+              <ExpoImage
+                source={{ uri: course.image }}
+                style={styles.courseImage}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.courseContent}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.courseTitle} numberOfLines={1}>
+                    {course.title}
+                  </Text>
+                  <Text style={styles.priceTag}>{formatPrice(course.price)}</Text>
                 </View>
-              ) : (
-                <Text style={styles.showMoreButtonText}>Show More</Text>
-              )}
+                <Text style={styles.mentorText} numberOfLines={1}>by {course.mentor}</Text>
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name={getCategoryIcon(course.category)} size={14} color={colors.primary} />
+                    <Text style={styles.metaText}>{course.category}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="layers-outline" size={14} color={colors.primary} />
+                    <Text style={styles.secondaryMetaText}>
+                      {moduleCountByCourseId[course.id] ?? 0} modules
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </Pressable>
-          ) : !isCoursesLoading && filteredCourses.length > 0 ? (
-            <View style={styles.noMoreWrap}>
-              <Text style={styles.noMoreText}>No more courses</Text>
-            </View>
-          ) : null}
-        </ScrollView>
+          )}
+        />
 
         <Modal
           transparent

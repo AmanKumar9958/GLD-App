@@ -1,9 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const CASHFREE_APP_ID  = Deno.env.get("CASHFREE_APP_ID") || Deno.env.get("EXPO_PUBLIC_CASHFREE_APP_ID") || "TEST110557079396652921cdb5c865e970755011";
+const CASHFREE_APP_ID  = Deno.env.get("CASHFREE_APP_ID") || Deno.env.get("EXPO_PUBLIC_CASHFREE_APP_ID") || "";
 const CASHFREE_SECRET  = Deno.env.get("CASHFREE_SECRET_KEY") || Deno.env.get("CASHFREE_SECRET") || "";
-const CASHFREE_BASE    = "https://sandbox.cashfree.com/pg";
+const CASHFREE_ENV     = Deno.env.get("CASHFREE_ENV") || "SANDBOX"; // Set to "PRODUCTION" in prod env vars
+const CASHFREE_BASE    = CASHFREE_ENV === "PRODUCTION"
+  ? "https://api.cashfree.com/pg"
+  : "https://sandbox.cashfree.com/pg";
 const CASHFREE_VERSION = "2023-08-01";
 
 const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;

@@ -2,9 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -113,7 +111,12 @@ function CourseCard({
 }) {
   return (
     <Pressable style={styles.courseCard} onPress={onPress}>
-      <Image source={{ uri: course.image }} style={styles.courseImage} />
+      <ExpoImage
+        source={{ uri: course.image }}
+        style={styles.courseImage}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
       <View style={styles.courseMetaRow}>
         <Text style={styles.courseTitle} numberOfLines={1}>
           {course.title}
@@ -283,11 +286,11 @@ export default function HomeScreen() {
       >
         <View style={styles.headerRow}>
           <View style={styles.profileRow}>
-            <Image
-              source={{
-                uri: displayPhoto,
-              }}
+            <ExpoImage
+              source={{ uri: displayPhoto }}
               style={styles.avatar}
+              contentFit="cover"
+              cachePolicy="memory-disk"
             />
             <View>
               <Text style={styles.greeting}>{greeting}</Text>

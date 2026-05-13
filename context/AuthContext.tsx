@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { User } from "@supabase/supabase-js";
@@ -24,6 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
+  // Prevents double profile fetch when both checkInitialSession + onAuthStateChange fire
+  const hasLoadedProfile = useRef(false);
 
   const refreshProfile = async (uid: string) => {
     try {
@@ -40,7 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.auth.getSession();
       const currentUser = data.session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) {
+      if (currentUser && !hasLoadedProfile.current) {
+        hasLoadedProfile.current = true;
         refreshProfile(currentUser.id).catch(console.error);
       }
       setIsAuthResolved(true);
@@ -54,8 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
-          refreshProfile(currentUser.id).catch(console.error);
+          if (!hasLoadedProfile.current) {
+            hasLoadedProfile.current = true;
+            refreshProfile(currentUser.id).catch(console.error);
+          }
         } else {
+          hasLoadedProfile.current = false;
           setProfile(null);
         }
         setIsAuthResolved(true);

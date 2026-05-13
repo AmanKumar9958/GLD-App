@@ -47,14 +47,14 @@ export async function getPaginatedCourses({
   pageParam = 0,
   category = 'All',
   priceFilter = 'All'
-}): Promise<{ data: DatabaseCourse[], nextPage: number | null }> {
+}): Promise<{ data: (DatabaseCourse & { modules: { id: string }[] })[], nextPage: number | null }> {
   const limit = 6;
   const from = pageParam * limit;
   const to = from + limit - 1;
 
   let query = supabase
     .from("courses")
-    .select("*")
+    .select("*, modules(id)")
     .eq("is_published", true);
 
   if (category !== "All") {
@@ -76,9 +76,23 @@ export async function getPaginatedCourses({
   if (error) throw error;
 
   return {
-    data: data || [],
+    data: (data || []) as (DatabaseCourse & { modules: { id: string }[] })[],
     nextPage: (data && data.length === limit) ? pageParam + 1 : null
   };
+}
+
+/**
+ * Fetch all unique published course categories in one lightweight query.
+ */
+export async function getCourseCategories(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("courses")
+    .select("category")
+    .eq("is_published", true);
+
+  if (error) throw error;
+  const set = new Set((data || []).map((d) => d.category).filter(Boolean));
+  return Array.from(set) as string[];
 }
 
 /**
