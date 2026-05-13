@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
+import ExpoImage from "expo-image/build/ExpoImage";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -21,10 +21,6 @@ import Spinner from "../../components/Spinner";
 import { useAuth } from "../../context/AuthContext";
 import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { signOutCurrentUser } from "../../services/auth";
-import {
-  UserProfile,
-  getUserProfileWithCache,
-} from "../../services/userProfile";
 
 const defaultAvatar =
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80";
@@ -120,7 +116,7 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.profileHeader}>
-            <Image source={{ uri: displayPhoto }} style={styles.avatar} />
+            <ExpoImage source={displayPhoto} style={styles.avatar} />
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.email}>{displayEmail}</Text>
           </View>

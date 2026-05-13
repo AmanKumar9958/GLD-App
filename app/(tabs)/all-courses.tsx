@@ -1,39 +1,37 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { FlashList } from "@shopify/flash-list";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  View,
-  FlatList,
-} from "react-native";
-import {
-  KeyboardAvoidingView,
-  Platform,
   TextInput,
-  Alert,
+  View
 } from "react-native";
+import { ScrollView } from "react-native-reanimated/lib/typescript/Animated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
+import { AppThemeColors, useTheme } from "../../context/ThemeContext";
 import {
   type WishlistCourse,
   useWishlist,
 } from "../../context/WishlistContext";
 import {
-  getPaginatedCourses,
   getCourseCategories,
+  getModules,
+  getPaginatedCourses,
 } from "../../services/courseService";
-import { supabase } from "../../services/supabase";
-import { saveUserProfile } from "../../services/userProfile";
 import { createCashfreeOrder, startCashfreePayment } from "../../services/paymentService";
-import { FlashList } from "@shopify/flash-list";
+import { saveUserProfile } from "../../services/userProfile";
 
 type AllCourse = {
   id: string;
@@ -127,6 +125,7 @@ export default function AllCoursesScreen() {
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { user, profile, refreshProfile } = useAuth();
+  const queryClient = useQueryClient();
 
   const initialCategory = useMemo<CategoryFilter>(() => {
     const rawCategory =
@@ -245,12 +244,27 @@ export default function AllCoursesScreen() {
     setSelectedCourseModules([]);
     setModulesError(null);
     setIsModulePopupVisible(true);
-    setIsModulesLoading(true);
 
+    // Check if we already have this course's modules cached — skip loading state
+    const cached = queryClient.getQueryData<string[]>(['courseModules', course.id]);
+    if (cached) {
+      setSelectedCourseModules(cached);
+      return;
+    }
+
+    setIsModulesLoading(true);
     try {
-      const modules = await getModules(course.id);
+      // fetchQuery: hits cache first, fetches from DB only if stale/missing
+      const moduleTitles = await queryClient.fetchQuery({
+        queryKey: ['courseModules', course.id],
+        queryFn: async () => {
+          const modules = await getModules(course.id);
+          return modules.map((m) => m.title);
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes — module titles rarely change
+      });
       if (isMounted.current) {
-        setSelectedCourseModules(modules.map((module) => module.title));
+        setSelectedCourseModules(moduleTitles);
       }
     } catch (err) {
       console.error("Failed to load modules:", err);
@@ -305,7 +319,7 @@ export default function AllCoursesScreen() {
     }
     try {
       const order = await createCashfreeOrder(course.id);
-      
+
       if (!isMounted.current) return;
 
       startCashfreePayment(order.orderId, order.paymentSessionId, {
