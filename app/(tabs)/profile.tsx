@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import ExpoImage from "expo-image/build/ExpoImage";
+import { Image as ExpoImage } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {

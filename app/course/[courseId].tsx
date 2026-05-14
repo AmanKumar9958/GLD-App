@@ -132,6 +132,16 @@ export default function CourseDetailsScreen() {
 
   const courseId = typeof params.courseId === "string" ? params.courseId : params.courseId?.[0] || "";
 
+  // Safe back: falls back to My Courses tab if there is no history
+  // (e.g. when arriving from the payment success screen via router.push)
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/courses" as any);
+    }
+  };
+
   const [course, setCourse] = useState<CourseHeader | null>(null);
   const [modules, setModules] = useState<ModuleWithLectureCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -366,7 +376,7 @@ export default function CourseDetailsScreen() {
       </Modal>
 
       <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={handleBack} hitSlop={8}>
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
         </Pressable>
         <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>{course ? course.title : "Course Details"}</Text>

@@ -1,15 +1,15 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
-import { mmkv } from "../utils/storage";
+import { queryStorageAdapter } from "../utils/storage";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, Suspense } from "react";
+import React, { useEffect } from "react";
 import BrandedLoader from "../components/BrandedLoader";
 import { useNotifications } from "../hooks/useNotifications";
 SplashScreen.preventAutoHideAsync();
@@ -24,11 +24,7 @@ const queryClient = new QueryClient({
 });
 
 const syncStoragePersister = createSyncStoragePersister({
-  storage: {
-    getItem: (key) => mmkv.getString(key) ?? null,
-    setItem: (key, value) => mmkv.set(key, value),
-    removeItem: (key) => mmkv.delete(key),
-  },
+  storage: queryStorageAdapter,
 });
 
 export default function RootLayout() {
@@ -83,17 +79,15 @@ function RootNavigator() {
   }
 
   return (
-    <Suspense fallback={<BrandedLoader />}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: "slide_from_right",
-          contentStyle: {
-            backgroundColor: colors.background,
-          },
-        }}
-      />
-    </Suspense>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+        contentStyle: {
+          backgroundColor: colors.background,
+        },
+      }}
+    />
   );
 }
 

@@ -95,7 +95,7 @@ export default function PaymentSuccessScreen() {
           {courseId ? (
             <Pressable
               style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.replace(`/course/${courseId}` as any)}
+              onPress={() => router.push(`/course/${courseId}` as any)}
             >
               <Ionicons name="play-circle" size={20} color="#fff" />
               <Text style={styles.primaryBtnText}>Start Learning</Text>

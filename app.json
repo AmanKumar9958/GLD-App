@@ -27,12 +27,7 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "asyncRoutes": true
-        }
-      ],
+      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -56,8 +51,7 @@
       "expo-web-browser"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},
