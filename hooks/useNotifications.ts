@@ -17,7 +17,15 @@ Notifications.setNotificationHandler({
 
 export function useNotifications() {
   const router = useRouter();
-  // Bug 1 fixed: use `user` instead of the non-existent `session`
+  // Stabilise the router reference in a ref so it never appears in the
+  // useEffect dependency array. The `router` object gets a new identity on
+  // every navigation-state change (e.g. the redirect triggered by logout),
+  // which was causing the "Maximum update depth exceeded" infinite loop.
+  const routerRef = useRef(router);
+  useEffect(() => {
+    routerRef.current = router;
+  });
+
   const { user } = useAuth();
   const notificationListener = useRef<Notifications.EventSubscription>();
   const responseListener = useRef<Notifications.EventSubscription>();
@@ -42,7 +50,7 @@ export function useNotifications() {
         console.log("Notification tapped, data:", data);
 
         if (data?.courseId) {
-          router.push(`/course/${data.courseId}`);
+          routerRef.current.push(`/course/${data.courseId}`);
         }
       }
     );
@@ -52,7 +60,7 @@ export function useNotifications() {
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
-  }, [user?.id, router]);
+  }, [user?.id]); // router intentionally omitted – stabilised via routerRef above
 }
 
 /**
