@@ -1,4 +1,4 @@
-import { MMKV } from "react-native-mmkv";
+import { createMMKV, MMKV } from "react-native-mmkv";
 
 // ─── Lazy + safe singleton ─────────────────────────────────────────────────────
 // `new MMKV()` is deferred and wrapped in try/catch.
@@ -16,7 +16,7 @@ function getMMKV(): MMKV | null {
   if (_mmkvFailed) return null;
   if (_mmkv) return _mmkv;
   try {
-    _mmkv = new MMKV();
+    _mmkv = createMMKV();
     return _mmkv;
   } catch (e) {
     console.warn(
@@ -30,7 +30,7 @@ function getMMKV(): MMKV | null {
   }
 }
 
-// ─── Exported mmkv proxy (drop-in replacement for `new MMKV()`) ───────────────
+// ─── Exported mmkv proxy (drop-in replacement for `createMMKV()`) ───────────────
 export const mmkv = new Proxy({} as MMKV, {
   get(_target, prop) {
     const instance = getMMKV();
@@ -43,7 +43,7 @@ export const mmkv = new Proxy({} as MMKV, {
     if (prop === "set") return (key: string, value: string | number | boolean) => {
       _memStore.set(key, String(value));
     };
-    if (prop === "delete") return (key: string) => { _memStore.delete(key); };
+    if (prop === "remove") return (key: string) => { _memStore.delete(key); };
     if (prop === "contains") return (key: string) => _memStore.has(key);
     if (prop === "getAllKeys") return () => Array.from(_memStore.keys());
     return undefined;
@@ -72,7 +72,7 @@ export const supabaseStorageAdapter = {
   },
   removeItem: (key: string): void => {
     const instance = getMMKV();
-    if (instance) { instance.delete(key); return; }
+    if (instance) { instance.remove(key); return; }
     _memStore.delete(key);
   },
 };
@@ -92,7 +92,7 @@ export const queryStorageAdapter = {
   },
   removeItem: (key: string): void => {
     const instance = getMMKV();
-    if (instance) { instance.delete(key); return; }
+    if (instance) { instance.remove(key); return; }
     _memStore.delete(key);
   },
 };

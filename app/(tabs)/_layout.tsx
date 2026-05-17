@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, useRouter } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "../../context/AuthContext";
@@ -9,26 +9,6 @@ export default function TabsLayout() {
   const { isAuthResolved, isAuthenticated } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors);
-  const router = useRouter();
-  // Guard so we only call router.replace once per logout, preventing the
-  // "Maximum update depth exceeded" loop that <Redirect> causes on re-renders.
-  const hasRedirected = useRef(false);
-
-  useEffect(() => {
-    if (!isAuthResolved) return;
-
-    if (isAuthenticated) {
-      // Reset guard whenever the user is authenticated (e.g. after re-login)
-      hasRedirected.current = false;
-      return;
-    }
-
-    if (!hasRedirected.current) {
-      hasRedirected.current = true;
-      router.replace("/");
-    }
-  }, [isAuthResolved, isAuthenticated, router]);
-
   if (!isAuthResolved) {
     return (
       <View style={styles.loadingContainer}>
@@ -37,9 +17,8 @@ export default function TabsLayout() {
     );
   }
 
-  // Render nothing while the one-shot redirect effect fires
   if (!isAuthenticated) {
-    return null;
+    return <Redirect href="/" />;
   }
 
   return (
