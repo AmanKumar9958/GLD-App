@@ -168,7 +168,30 @@ export async function getCourseWithModules(
     throw error;
   }
 
-  return data as CourseWithModules;
+  const rawModules = data.modules || [];
+  const parentModules = rawModules.filter((m: any) => !m.parent_id);
+  const subModules = rawModules.filter((m: any) => m.parent_id);
+
+  const nestedModules = parentModules.map((parent: any) => {
+    const children = subModules
+      .filter((child: any) => child.parent_id === parent.id)
+      .map((child: any) => ({
+        ...child,
+        videos: (child.videos || []).sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+      }))
+      .sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
+
+    return {
+      ...parent,
+      subModules: children,
+      videos: (parent.videos || []).sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+    };
+  }).sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
+
+  return {
+    ...data,
+    modules: nestedModules
+  } as CourseWithModules;
 }
 
 /**

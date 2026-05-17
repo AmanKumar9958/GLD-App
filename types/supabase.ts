@@ -31,6 +31,7 @@ export interface DatabaseModule {
   course_id: string;
   title: string;
   order_index: number;
+  parent_id?: string | null;
   created_at: string;
 }
 
@@ -77,10 +78,15 @@ export interface DatabasePayment {
  * Composite types for UI usage (nested structures).
  */
 
-export interface ModuleWithVideos extends DatabaseModule {
+export interface SubModuleWithVideos extends DatabaseModule {
+  videos: DatabaseVideo[];
+}
+
+export interface ModuleWithSubModules extends DatabaseModule {
+  subModules: SubModuleWithVideos[];
   videos: DatabaseVideo[];
 }
 
 export interface CourseWithModules extends DatabaseCourse {
-  modules: ModuleWithVideos[];
+  modules: ModuleWithSubModules[];
 }

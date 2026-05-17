@@ -34,6 +34,12 @@ type ModuleWithLectureCount = {
   title: string;
   orderIndex: number;
   lectureCount: number;
+  subModules: {
+    id: string;
+    title: string;
+    orderIndex: number;
+    videos: DatabaseVideo[];
+  }[];
   videos: DatabaseVideo[];
 };
 
@@ -148,6 +154,7 @@ export default function CourseDetailsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [expandedSubModuleId, setExpandedSubModuleId] = useState<string | null>(null);
 
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isBuyLoading, setIsBuyLoading] = useState(false);
@@ -208,13 +215,19 @@ export default function CourseDetailsScreen() {
       }
 
       // Step 4: Map nested data to UI structure (No more extra loops/fetches!)
-      const mappedModules = (fullCourseData.modules || []).map((m: any) => ({
-        id: m.id,
-        title: m.title,
-        orderIndex: m.order_index,
-        lectureCount: m.videos?.length || 0,
-        videos: m.videos || [],
-      })).sort((a: any, b: any) => a.orderIndex - b.orderIndex);
+      const mappedModules = (fullCourseData.modules || []).map((m: any) => {
+        const subLectures = (m.subModules || []).reduce((sum: number, sub: any) => sum + (sub.videos?.length || 0), 0);
+        const directLectures = m.videos?.length || 0;
+
+        return {
+          id: m.id,
+          title: m.title,
+          orderIndex: m.order_index,
+          lectureCount: subLectures + directLectures,
+          subModules: m.subModules || [],
+          videos: m.videos || [],
+        };
+      }).sort((a: any, b: any) => a.orderIndex - b.orderIndex);
 
       setModules(mappedModules);
       setError(null);
@@ -458,21 +471,71 @@ export default function CourseDetailsScreen() {
                 <Ionicons name={expandedModuleId === module.id ? "chevron-down-outline" : "chevron-forward-outline"} size={18} color={colors.textSecondary} />
               </Pressable>
 
-              {expandedModuleId === module.id && module.videos.length > 0 && (
+              {expandedModuleId === module.id && (
                 <View style={[styles.videosListContainer, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-                  {module.videos.map((video, vIndex) => (
-                    <Pressable
-                      key={video.id}
-                      style={[styles.videoItem, { borderBottomColor: colors.border }, vIndex === module.videos.length - 1 && styles.lastVideoItem]}
-                      onPress={() => router.push(`/video/${video.id}` as any)}
-                    >
-                      <Ionicons name="play-circle" size={24} color={colors.primary} />
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.videoTitleText, { color: colors.textPrimary }]} numberOfLines={1}>{video.title}</Text>
-                        <Text style={[styles.videoDurationText, { color: colors.textSecondary }]}>{video.duration} min</Text>
+                  {module.subModules?.length > 0 ? (
+                    module.subModules.map((subModule, smIndex) => (
+                      <View key={subModule.id} style={[styles.subModuleContainer, smIndex > 0 && { marginTop: 10 }]}>
+                        <Pressable
+                          style={[
+                            styles.subModuleCard,
+                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            expandedSubModuleId === subModule.id && styles.subModuleCardExpanded
+                          ]}
+                          onPress={() => setExpandedSubModuleId(expandedSubModuleId === subModule.id ? null : subModule.id)}
+                        >
+                          <Ionicons name="folder-open-outline" size={16} color={colors.primary} />
+                          <View style={{ flex: 1, marginLeft: 8 }}>
+                            <Text style={[styles.subModuleTitleText, { color: colors.textPrimary }]}>{subModule.title}</Text>
+                            <Text style={[styles.subModuleSubtitleText, { color: colors.textSecondary }]}>
+                              {subModule.videos?.length || 0} lecture{(subModule.videos?.length === 1) ? "" : "s"}
+                            </Text>
+                          </View>
+                          <Ionicons name={expandedSubModuleId === subModule.id ? "chevron-down-outline" : "chevron-forward-outline"} size={14} color={colors.textSecondary} />
+                        </Pressable>
+
+                        {expandedSubModuleId === subModule.id && subModule.videos?.length > 0 && (
+                          <View style={[styles.subVideosListContainer, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                            {subModule.videos.map((video, vIndex) => (
+                              <Pressable
+                                key={video.id}
+                                style={[
+                                  styles.videoItem,
+                                  { borderBottomColor: colors.border },
+                                  vIndex === subModule.videos.length - 1 && styles.lastVideoItem
+                                ]}
+                                onPress={() => router.push(`/video/${video.id}` as any)}
+                              >
+                                <Ionicons name="play-circle" size={20} color={colors.primary} />
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                  <Text style={[styles.videoTitleText, { color: colors.textPrimary }]} numberOfLines={1}>{video.title}</Text>
+                                  <Text style={[styles.videoDurationText, { color: colors.textSecondary }]}>{video.duration} min</Text>
+                                </View>
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
                       </View>
-                    </Pressable>
-                  ))}
+                    ))
+                  ) : module.videos?.length > 0 ? (
+                    module.videos.map((video, vIndex) => (
+                      <Pressable
+                        key={video.id}
+                        style={[styles.videoItem, { borderBottomColor: colors.border }, vIndex === module.videos.length - 1 && styles.lastVideoItem]}
+                        onPress={() => router.push(`/video/${video.id}` as any)}
+                      >
+                        <Ionicons name="play-circle" size={24} color={colors.primary} />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={[styles.videoTitleText, { color: colors.textPrimary }]} numberOfLines={1}>{video.title}</Text>
+                          <Text style={[styles.videoDurationText, { color: colors.textSecondary }]}>{video.duration} min</Text>
+                        </View>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <Text style={[styles.emptySubModulesText, { color: colors.textSecondary }]}>
+                      No lectures available for this chapter yet.
+                    </Text>
+                  )}
                 </View>
               )}
             </View>
@@ -510,6 +573,13 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
     moduleCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 10, gap: 10 },
     moduleCardExpanded: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
     videosListContainer: { paddingHorizontal: 16, paddingVertical: 8, borderBottomLeftRadius: 14, borderBottomRightRadius: 14, borderWidth: 1, borderTopWidth: 0, paddingBottom: 12 },
+    subModuleContainer: { width: "100%" },
+    subModuleCard: { flexDirection: "row", alignItems: "center", borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+    subModuleCardExpanded: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
+    subVideosListContainer: { paddingHorizontal: 12, paddingVertical: 4, borderBottomLeftRadius: 10, borderBottomRightRadius: 10, borderWidth: 1, borderTopWidth: 0, paddingBottom: 8 },
+    subModuleTitleText: { fontSize: 13, fontWeight: "700" },
+    subModuleSubtitleText: { fontSize: 11, marginTop: 1, fontWeight: "500" },
+    emptySubModulesText: { fontSize: 12, textAlign: "center", paddingVertical: 12, fontStyle: "italic" },
     videoItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1 },
     lastVideoItem: { borderBottomWidth: 0 },
     videoTitleText: { fontSize: 14, fontWeight: "600" },
