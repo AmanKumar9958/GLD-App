@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
@@ -9,9 +9,10 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { queryStorageAdapter } from "../utils/storage";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import BrandedLoader from "../components/BrandedLoader";
 import { useNotifications } from "../hooks/useNotifications";
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -59,36 +60,47 @@ function AppShell() {
   );
 }
 
-
-
 function RootNavigator() {
-  const { isAuthResolved } = useAuth();
+  const { isAuthResolved, isAuthenticated } = useAuth();
   const { colors } = useTheme();
-  const styles = createStyles(colors.background);
-  
-  // Initialize push notification listeners
+  const router = useRouter();
+  const segments = useSegments();
+
+  const stackScreenOptions = useMemo(
+    () => ({
+      headerShown: false,
+      animation: "slide_from_right" as const,
+      contentStyle: { backgroundColor: colors.background },
+    }),
+    [colors.background]
+  );
+
   useNotifications();
 
+  // Only handle the case where an already-logged-in user lands on the login
+  // screen (e.g., app cold-starts while authenticated). The logout redirect
+  // is handled declaratively by <Redirect> inside (tabs)/_layout.tsx.
+  const segmentKey = segments[0] ?? '__root__';
   useEffect(() => {
-    // Hide native splash screen immediately so BrandedLoader is visible
-    SplashScreen.hideAsync();
-  }, []);
+    if (!isAuthResolved || !isAuthenticated) return;
+    if (segmentKey === '__root__') {
+      const t = setTimeout(() => router.replace('/(tabs)'), 0);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isAuthResolved, segmentKey]);
+
+  useEffect(() => {
+    if (isAuthResolved) {
+      SplashScreen.hideAsync();
+    }
+  }, [isAuthResolved]);
 
   if (!isAuthResolved) {
     return <BrandedLoader />;
   }
 
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: "slide_from_right",
-        contentStyle: {
-          backgroundColor: colors.background,
-        },
-      }}
-    />
-  );
+  return <Stack screenOptions={stackScreenOptions} />;
 }
 
 const createStyles = (backgroundColor: string) =>
