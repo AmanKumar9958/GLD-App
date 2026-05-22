@@ -1,6 +1,5 @@
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { WishlistProvider } from "../context/WishlistContext";
@@ -61,10 +60,8 @@ function AppShell() {
 }
 
 function RootNavigator() {
-  const { isAuthResolved, isAuthenticated } = useAuth();
+  const { isAuthResolved } = useAuth();
   const { colors } = useTheme();
-  const router = useRouter();
-  const segments = useSegments();
 
   const stackScreenOptions = useMemo(
     () => ({
@@ -77,38 +74,22 @@ function RootNavigator() {
 
   useNotifications();
 
-  // Only handle the case where an already-logged-in user lands on the login
-  // screen (e.g., app cold-starts while authenticated). The logout redirect
-  // is handled declaratively by <Redirect> inside (tabs)/_layout.tsx.
-  const segmentKey = segments[0] ?? '__root__';
-  useEffect(() => {
-    if (!isAuthResolved || !isAuthenticated) return;
-    if (segmentKey === '__root__') {
-      const t = setTimeout(() => router.replace('/(tabs)'), 0);
-      return () => clearTimeout(t);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, isAuthResolved, segmentKey]);
-
+  // Hide the splash screen once auth state is known.
   useEffect(() => {
     if (isAuthResolved) {
       SplashScreen.hideAsync();
     }
   }, [isAuthResolved]);
 
+  // Show loader while auth is resolving.
   if (!isAuthResolved) {
     return <BrandedLoader />;
   }
 
+  // Auth-based redirects are handled declaratively:
+  //   Authenticated users at /   → <Redirect href="/(tabs)" /> in app/index.tsx
+  //   Unauthenticated users at tabs → <Redirect href="/" /> in (tabs)/_layout.tsx
+  // No imperative router.replace() here — it subscribed to nav state via
+  // useRouter()/useSegments() and caused an infinite re-render loop.
   return <Stack screenOptions={stackScreenOptions} />;
 }
-
-const createStyles = (backgroundColor: string) =>
-  StyleSheet.create({
-    loadingContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor,
-    },
-  });
