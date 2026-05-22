@@ -323,17 +323,7 @@ export default function CourseDetailsScreen() {
   const renderBottomBar = () => {
     if (isAdmin || !course) return null;
     if (isEnrolled) {
-      return (
-        <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-          <Pressable
-            style={[styles.enrolledBtn, { borderColor: colors.primary }]}
-            onPress={() => router.push(`/course/${courseId}` as any)}
-          >
-            <Ionicons name="play-circle" size={20} color={colors.primary} />
-            <Text style={[styles.enrolledBtnText, { color: colors.primary }]}>Continue Learning</Text>
-          </Pressable>
-        </View>
-      );
+      return null;
     }
     if (course.price === 0) {
       return (

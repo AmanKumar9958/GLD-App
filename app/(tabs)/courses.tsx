@@ -153,7 +153,6 @@ export default function CoursesScreen() {
                     <Text style={styles.courseTitle} numberOfLines={1}>
                       {course.title}
                     </Text>
-                    <Text style={styles.progressPct}>{course.progress}%</Text>
                   </View>
 
                   <Text style={styles.courseSubtitle} numberOfLines={1}>
@@ -162,14 +161,7 @@ export default function CoursesScreen() {
 
                   <Text style={styles.statusText}>{statusText}</Text>
 
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { width: `${course.progress}%` },
-                      ]}
-                    />
-                  </View>
+
                 </View>
               </Pressable>
             );
