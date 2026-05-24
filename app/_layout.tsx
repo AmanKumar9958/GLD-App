@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
@@ -8,7 +8,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { queryStorageAdapter } from "../utils/storage";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import BrandedLoader from "../components/BrandedLoader";
 import { useNotifications } from "../hooks/useNotifications";
 
@@ -17,8 +17,8 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      cacheTime: 1000 * 60 * 60 * 24, // 24 hours
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      cacheTime: 1000 * 60 * 60 * 24,
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
@@ -26,6 +26,9 @@ const queryClient = new QueryClient({
 const syncStoragePersister = createSyncStoragePersister({
   storage: queryStorageAdapter,
 });
+
+// Moved outside AppShell so it never causes PersistQueryClientProvider to remount
+const persistOptions = { persister: syncStoragePersister };
 
 export default function RootLayout() {
   return (
@@ -49,8 +52,9 @@ function AppShell() {
         <WishlistProvider>
           <PersistQueryClientProvider
             client={queryClient}
-            persistOptions={{ persister: syncStoragePersister }}
+            persistOptions={persistOptions}  // ← stable, defined outside component
           >
+            <NotificationsWrapper />
             <RootNavigator />
           </PersistQueryClientProvider>
         </WishlistProvider>
@@ -59,37 +63,56 @@ function AppShell() {
   );
 }
 
+// Separate component so useNotifications() never lives inside RootNavigator.
+// This prevents the useRouter() subscription from causing RootNavigator
+// to re-render on every navigation state change.
+function NotificationsWrapper() {
+  useNotifications();
+  return null;
+}
+
 function RootNavigator() {
-  const { isAuthResolved } = useAuth();
+  const { isAuthResolved, isAuthenticated } = useAuth();
   const { colors } = useTheme();
+
+  const backgroundColorRef = useRef(colors.background);
+  useEffect(() => {
+    backgroundColorRef.current = colors.background;
+  }, [colors.background]);
 
   const stackScreenOptions = useMemo(
     () => ({
       headerShown: false,
       animation: "slide_from_right" as const,
-      contentStyle: { backgroundColor: colors.background },
+      contentStyle: { backgroundColor: backgroundColorRef.current },
     }),
-    [colors.background]
+    []
   );
 
-  useNotifications();
-
-  // Hide the splash screen once auth state is known.
   useEffect(() => {
     if (isAuthResolved) {
       SplashScreen.hideAsync();
     }
   }, [isAuthResolved]);
 
-  // Show loader while auth is resolving.
+  // When the user logs out, navigate to the index (login) screen.
+  // Using router.replace inside useEffect (post-commit) avoids the infinite
+  // re-render loop that <Redirect> components cause in nested navigators.
+  const isNavigatingRef = useRef(false);
+  useEffect(() => {
+    if (isAuthResolved && !isAuthenticated && !isNavigatingRef.current) {
+      isNavigatingRef.current = true;
+      // Defer to next tick so React Navigation finishes its current commit
+      setTimeout(() => {
+        router.replace("/");
+        isNavigatingRef.current = false;
+      }, 0);
+    }
+  }, [isAuthResolved, isAuthenticated]);
+
   if (!isAuthResolved) {
     return <BrandedLoader />;
   }
 
-  // Auth-based redirects are handled declaratively:
-  //   Authenticated users at /   → <Redirect href="/(tabs)" /> in app/index.tsx
-  //   Unauthenticated users at tabs → <Redirect href="/" /> in (tabs)/_layout.tsx
-  // No imperative router.replace() here — it subscribed to nav state via
-  // useRouter()/useSegments() and caused an infinite re-render loop.
   return <Stack screenOptions={stackScreenOptions} />;
 }

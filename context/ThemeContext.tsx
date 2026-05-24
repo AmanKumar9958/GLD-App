@@ -1,13 +1,14 @@
-import { mmkv } from "../utils/storage";
 import React, {
-    createContext,
-    ReactNode,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 import { LayoutAnimation } from "react-native";
+import { mmkv } from "../utils/storage";
 
 export type ThemeMode = "light" | "dark";
 
@@ -67,54 +68,37 @@ const darkColors: AppThemeColors = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-// Removed experimental Android call for LayoutAnimation
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
     let active = true;
-
-    const loadTheme = () => {
-      try {
-        const stored = mmkv.getString(THEME_STORAGE_KEY);
-
-        if (!active) {
-          return;
-        }
-
-        if (stored === "dark" || stored === "light") {
-          setMode(stored);
-        }
-      } catch {
-        // Keep default theme when restore fails.
+    try {
+      const stored = mmkv.getString(THEME_STORAGE_KEY);
+      if (active && (stored === "dark" || stored === "light")) {
+        setMode(stored);
       }
-    };
-
-    loadTheme();
-
-    return () => {
-      active = false;
-    };
+    } catch {
+      // keep default
+    }
+    return () => { active = false; };
   }, []);
 
-  const toggleTheme = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-
-    setMode((previous) => (previous === "light" ? "dark" : "light"));
-  };
-
   useEffect(() => {
-    const persistTheme = () => {
-      try {
-        mmkv.set(THEME_STORAGE_KEY, mode);
-      } catch {
-        // Keep UI responsive even if persistence fails.
-      }
-    };
-
-    persistTheme();
+    try {
+      mmkv.set(THEME_STORAGE_KEY, mode);
+    } catch {
+      // keep UI responsive
+    }
   }, [mode]);
+
+  // ← useCallback so toggleTheme is the same function reference forever
+  // Without this, every ThemeProvider render produces a new toggleTheme,
+  // which invalidates the useMemo below and re-renders all consumers
+  const toggleTheme = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setMode((prev) => (prev === "light" ? "dark" : "light"));
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -123,7 +107,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       colors: mode === "dark" ? darkColors : lightColors,
       toggleTheme,
     }),
-    [mode],
+    [mode, toggleTheme]
   );
 
   return (
@@ -133,10 +117,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export function useTheme(): ThemeContextValue {
   const context = useContext(ThemeContext);
-
   if (!context) {
     throw new Error("useTheme must be used within a ThemeProvider.");
   }
-
   return context;
 }

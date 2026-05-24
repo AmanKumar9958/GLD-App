@@ -1,4 +1,3 @@
-import { mmkv } from "../utils/storage";
 import React, {
   createContext,
   ReactNode,
@@ -6,10 +5,12 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { useAuth } from "./AuthContext";
 import { supabase } from "../services/supabase";
+import { mmkv } from "../utils/storage";
+import { useAuth } from "./AuthContext";
 
 export type WishlistCourse = {
   id: string;
@@ -18,7 +19,6 @@ export type WishlistCourse = {
   category: string;
   price: string;
   image: string;
-  // These might be static or handled elsewhere in the current schema
   level?: string;
   lessons?: number;
   duration?: string;
@@ -34,9 +34,7 @@ type WishlistContextValue = {
   removeFromWishlist: (courseId: string) => void;
 };
 
-const WishlistContext = createContext<WishlistContextValue | undefined>(
-  undefined
-);
+const WishlistContext = createContext<WishlistContextValue | undefined>(undefined);
 
 function getStorageKey(uid: string): string {
   return `wishlist:${uid}`;
@@ -46,20 +44,32 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [wishlist, setWishlist] = useState<WishlistCourse[]>([]);
 
-  const loadWishlist = useCallback(async () => {
-    if (!user?.id) {
+  // Stable ref so toggleWishlist/removeFromWishlist always see latest
+  // wishlist without needing it in their useCallback dependency arrays
+  const wishlistRef = useRef(wishlist);
+  useEffect(() => {
+    wishlistRef.current = wishlist;
+  }, [wishlist]);
+
+  // Stable ref for user id — prevents loadWishlist from rebuilding
+  // just because the user object reference changed
+  const userIdRef = useRef(user?.id);
+  useEffect(() => {
+    userIdRef.current = user?.id;
+  }, [user?.id]);
+
+  const loadWishlist = useCallback(async (uid: string | undefined) => {
+    if (!uid) {
       setWishlist([]);
       return;
     }
 
     try {
-      // 1. Load from Cache first
-      const cacheRaw = mmkv.getString(getStorageKey(user.id));
+      const cacheRaw = mmkv.getString(getStorageKey(uid));
       if (cacheRaw) {
         setWishlist(JSON.parse(cacheRaw));
       }
 
-      // 2. Fetch from Supabase
       const { data, error } = await supabase
         .from("wishlists")
         .select(`
@@ -73,11 +83,11 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             thumbnail_url
           )
         `)
-        .eq("user_id", user.id);
+        .eq("user_id", uid);
 
       if (error) throw error;
 
-      const syncedWishlist: WishlistCourse[] = (data || []).map((item: any) => ({
+      const synced: WishlistCourse[] = (data || []).map((item: any) => ({
         id: item.courses.id,
         title: item.courses.title,
         mentor: item.courses.instructor_name,
@@ -86,64 +96,62 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         image: item.courses.thumbnail_url || "",
       }));
 
-      setWishlist(syncedWishlist);
-      await mmkv.set(getStorageKey(user.id), JSON.stringify(syncedWishlist));
+      setWishlist(synced);
+      mmkv.set(getStorageKey(uid), JSON.stringify(synced));
     } catch (error) {
       console.error("Error loading wishlist:", error);
     }
-  }, [user?.id]);
+  }, []); // ← empty deps: function never rebuilds
 
   useEffect(() => {
-    loadWishlist();
-  }, [loadWishlist]);
+    loadWishlist(user?.id);
+  }, [user?.id, loadWishlist]);
 
   const isInWishlist = useCallback(
-    (courseId: string) => wishlist.some((course) => course.id === courseId),
-    [wishlist]
+    (courseId: string) => wishlistRef.current.some((c) => c.id === courseId),
+    [] // ← uses ref, no wishlist dep, never rebuilds
   );
 
   const toggleWishlist = useCallback(async (course: WishlistCourse) => {
-    if (!user?.id) return;
+    const uid = userIdRef.current;
+    if (!uid) return;
 
-    const exists = wishlist.some((item) => item.id === course.id);
+    const current = wishlistRef.current;
+    const exists = current.some((item) => item.id === course.id);
+    const updated = exists
+      ? current.filter((item) => item.id !== course.id)
+      : [course, ...current];
+
+    setWishlist(updated);
+    mmkv.set(getStorageKey(uid), JSON.stringify(updated));
 
     if (exists) {
-      // Remove from DB
-      setWishlist((prev) => prev.filter((item) => item.id !== course.id));
       await supabase
         .from("wishlists")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", uid)
         .eq("course_id", course.id);
     } else {
-      // Add to DB
-      setWishlist((prev) => [course, ...prev]);
       await supabase
         .from("wishlists")
-        .insert([{ user_id: user.id, course_id: course.id }]);
+        .insert([{ user_id: uid, course_id: course.id }]);
     }
-    
-    // Update Cache
-    const updated = exists 
-      ? wishlist.filter((item) => item.id !== course.id)
-      : [course, ...wishlist];
-    mmkv.set(getStorageKey(user.id), JSON.stringify(updated));
-  }, [user?.id, wishlist]);
+  }, []); // ← uses refs, never rebuilds
 
   const removeFromWishlist = useCallback(async (courseId: string) => {
-    if (!user?.id) return;
+    const uid = userIdRef.current;
+    if (!uid) return;
 
-    setWishlist((prev) => prev.filter((course) => course.id !== courseId));
-    
+    const updated = wishlistRef.current.filter((c) => c.id !== courseId);
+    setWishlist(updated);
+    mmkv.set(getStorageKey(uid), JSON.stringify(updated));
+
     await supabase
       .from("wishlists")
       .delete()
-      .eq("user_id", user.id)
+      .eq("user_id", uid)
       .eq("course_id", courseId);
-
-    const updated = wishlist.filter((course) => course.id !== courseId);
-    mmkv.set(getStorageKey(user.id), JSON.stringify(updated));
-  }, [user?.id, wishlist]);
+  }, []); // ← uses refs, never rebuilds
 
   const value = useMemo(
     () => ({
