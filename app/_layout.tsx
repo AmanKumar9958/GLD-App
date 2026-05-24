@@ -95,18 +95,20 @@ function RootNavigator() {
     }
   }, [isAuthResolved]);
 
-  // When the user logs out, navigate to the index (login) screen.
-  // Using router.replace inside useEffect (post-commit) avoids the infinite
-  // re-render loop that <Redirect> components cause in nested navigators.
-  const isNavigatingRef = useRef(false);
+  // Track previous auth state so we only navigate on actual transitions
+  // (logout), not on initial load where app/index.tsx handles redirection.
+  const prevAuthRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (isAuthResolved && !isAuthenticated && !isNavigatingRef.current) {
-      isNavigatingRef.current = true;
-      // Defer to next tick so React Navigation finishes its current commit
-      setTimeout(() => {
-        router.replace("/");
-        isNavigatingRef.current = false;
-      }, 0);
+    if (!isAuthResolved) return;
+
+    const wasAuthenticated = prevAuthRef.current;
+    prevAuthRef.current = isAuthenticated;
+
+    // Only redirect when the user was previously authenticated and is now
+    // logged out (i.e. an actual logout transition).  On initial load
+    // (wasAuthenticated === null) we let app/index.tsx handle it.
+    if (wasAuthenticated === true && !isAuthenticated) {
+      router.replace("/welcome");
     }
   }, [isAuthResolved, isAuthenticated]);
 
