@@ -45,3 +45,4 @@ app-example
 .env
 google-services.json
 node-modules/
+.env.local

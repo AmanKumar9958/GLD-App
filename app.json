@@ -48,7 +48,15 @@
         }
       ],
       "expo-video",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "gld-shikshalaya"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

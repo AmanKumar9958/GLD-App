@@ -11,6 +11,26 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useMemo, useRef } from "react";
 import BrandedLoader from "../components/BrandedLoader";
 import { useNotifications } from "../hooks/useNotifications";
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://f66c65138f1c41fa89cec85882580a73@o4511444301250560.ingest.de.sentry.io/4511444309377104',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,13 +50,13 @@ const syncStoragePersister = createSyncStoragePersister({
 // Moved outside AppShell so it never causes PersistQueryClientProvider to remount
 const persistOptions = { persister: syncStoragePersister };
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   return (
     <ThemeProvider>
       <AppShell />
     </ThemeProvider>
   );
-}
+});
 
 function AppShell() {
   const { isDark } = useTheme();
