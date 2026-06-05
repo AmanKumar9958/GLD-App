@@ -3,9 +3,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
+  UIManager,
   View,
   ScrollView,
 } from "react-native";
@@ -31,6 +34,19 @@ export default function VideoDetailScreen() {
   const [video, setVideo] = useState<DatabaseVideo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [descExpanded, setDescExpanded] = useState(false);
+
+  // Enable LayoutAnimation on Android
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const toggleDescription = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setDescExpanded((prev) => !prev);
+  };
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -133,6 +149,42 @@ export default function VideoDetailScreen() {
               </View>
             )}
         </View>
+
+        {/* Collapsible Description Section */}
+        {!!video.description?.trim() && (
+          <View style={[styles.descriptionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Pressable
+              onPress={toggleDescription}
+              style={styles.descriptionHeader}
+              hitSlop={4}
+            >
+              <View style={styles.descriptionLabelRow}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={18}
+                  color={colors.primary}
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={[styles.descriptionLabel, { color: colors.textPrimary }]}>
+                  About this video
+                </Text>
+              </View>
+              <Ionicons
+                name={descExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+
+            {descExpanded && (
+              <View style={[styles.descriptionBody, { borderTopColor: colors.border }]}>
+                <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
+                  {video.description}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -193,5 +245,37 @@ const styles = StyleSheet.create({
   previewText: {
     fontSize: 12,
     fontWeight: 'bold',
-  }
+  },
+  descriptionCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  descriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  descriptionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  descriptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  descriptionBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 12,
+  },
+  descriptionText: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
 });

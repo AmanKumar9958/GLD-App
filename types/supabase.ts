@@ -43,6 +43,7 @@ export interface DatabaseVideo {
   duration: number;
   is_preview: boolean;
   order_index: number;
+  description: string | null;
 }
 
 export interface DatabaseUserCourse {
