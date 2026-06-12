@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -8,9 +8,10 @@ export default function TabsLayout() {
   const { isAuthenticated } = useAuth();
   const { colors, isDark } = useTheme();
 
-  // sceneStyle must be a stable object — inline objects cause
-  // React Navigation to re-subscribe on every render → loop on logout
-  const sceneStyleRef = useRef({ backgroundColor: colors.background });
+  const sceneStyle = useMemo(
+    () => ({ backgroundColor: colors.background }),
+    [colors.background]
+  );
 
   const tabBarStyle = useMemo(
     () => ({
@@ -28,13 +29,12 @@ export default function TabsLayout() {
     () => ({
       headerShown: false,
       animation: "shift" as const,
-      sceneStyle: sceneStyleRef.current, // ← stable ref, never a new object
+      sceneStyle,
       tabBarActiveTintColor: isDark ? colors.white : colors.primary,
       tabBarInactiveTintColor: isDark ? colors.textSecondary : colors.tabInactive,
       tabBarStyle,
     }),
-    [colors.white, colors.primary, colors.textSecondary, colors.tabInactive, isDark, tabBarStyle]
-    // colors.background intentionally excluded — handled via stable ref
+    [colors.white, colors.primary, colors.textSecondary, colors.tabInactive, isDark, tabBarStyle, sceneStyle]
   );
 
   // While the root navigator redirects to login, prevent

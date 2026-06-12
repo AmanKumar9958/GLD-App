@@ -95,18 +95,13 @@ function RootNavigator() {
   const { isAuthResolved, isAuthenticated } = useAuth();
   const { colors } = useTheme();
 
-  const backgroundColorRef = useRef(colors.background);
-  useEffect(() => {
-    backgroundColorRef.current = colors.background;
-  }, [colors.background]);
-
   const stackScreenOptions = useMemo(
     () => ({
       headerShown: false,
       animation: "slide_from_right" as const,
-      contentStyle: { backgroundColor: backgroundColorRef.current },
+      contentStyle: { backgroundColor: colors.background },
     }),
-    []
+    [colors.background]
   );
 
   useEffect(() => {
