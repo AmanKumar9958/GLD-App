@@ -3,6 +3,7 @@ import { useNavigation, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,7 +37,7 @@ export default function CoursesScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
-  const { data: courses = [], isLoading } = useQuery({
+  const { data: courses = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['userCourses', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -46,6 +47,10 @@ export default function CoursesScreen() {
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
+
+  const handleRefresh = async () => {
+    await refetch();
+  };
 
   const filteredCourses = useMemo(() => {
     if (activeFilter === "all") {
@@ -111,6 +116,15 @@ export default function CoursesScreen() {
           estimatedItemSize={100}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surface}
+            />
+          }
           ListEmptyComponent={
             isLoading ? (
               <>
