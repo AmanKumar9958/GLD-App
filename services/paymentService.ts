@@ -32,6 +32,14 @@ export type PaymentCallbacks = {
 export async function createCashfreeOrder(
   courseId: string
 ): Promise<CreateOrderResult> {
+  // Ensure we have a valid, fresh session before calling the edge function.
+  // supabase.auth.getSession() returns the cached token which may be expired;
+  // calling getUser() forces a refresh if needed.
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) {
+    throw new Error("Session expired — please sign in again to continue.");
+  }
+
   const { data, error } = await supabase.functions.invoke<CreateOrderResult>(
     "create-cashfree-order",
     { body: { courseId } }
@@ -39,14 +47,18 @@ export async function createCashfreeOrder(
 
   if (error) {
     let actualError = error.message;
+    // Supabase wraps edge-function HTTP errors in FunctionsHttpError with a
+    // `context` property containing the raw Response object.
     if (error instanceof Error && 'context' in error) {
       try {
         const response = (error as any).context as Response;
-        const errBody = await response.json();
-        if (errBody && errBody.error) {
-          actualError = errBody.error;
+        if (response && typeof response.json === 'function') {
+          const errBody = await response.json();
+          if (errBody && errBody.error) {
+            actualError = errBody.error;
+          }
         }
-      } catch (e) {
+      } catch (_) {
         // Fallback to original message if JSON parsing fails
       }
     }
@@ -62,8 +74,9 @@ export async function createCashfreeOrder(
 
 // ─── Start Payment (Cashfree SDK) ────────────────────────────────────────────
 
+const envValue = (process.env.EXPO_PUBLIC_CASHFREE_ENV as string)?.toUpperCase() ?? "";
 const CASHFREE_ENV =
-  (process.env.EXPO_PUBLIC_CASHFREE_ENV as string) === "PRODUCTION"
+  envValue === "PRODUCTION" || envValue === "PROD"
     ? CFEnvironment.PRODUCTION
     : CFEnvironment.SANDBOX;
 
