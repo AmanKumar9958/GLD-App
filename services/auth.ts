@@ -41,11 +41,45 @@ function configureGoogleSignIn(): void {
 export async function signInWithGoogle() {
   configureGoogleSignIn();
 
-  await GoogleSignin.hasPlayServices({
-    showPlayServicesUpdateDialog: true,
-  });
+  try {
+    await GoogleSignin.hasPlayServices({
+      showPlayServicesUpdateDialog: true,
+    });
+  } catch (playServicesError) {
+    console.error("[GoogleSignIn] Play Services check failed:", playServicesError);
+    throw new Error("Google Play Services is not available. Please update Google Play Services and try again.");
+  }
 
-  const signInResult = await GoogleSignin.signIn();
+  let signInResult;
+  try {
+    signInResult = await GoogleSignin.signIn();
+  } catch (signInError: any) {
+    const statusCode = signInError?.code ?? signInError?.statusCode ?? "unknown";
+    console.error(
+      `[GoogleSignIn] signIn failed — statusCode: ${statusCode}`,
+      signInError
+    );
+
+    // Provide user-friendly messages based on known status codes
+    if (statusCode === "SIGN_IN_CANCELLED" || statusCode === "12501") {
+      throw new Error("Google sign-in was cancelled.");
+    }
+    if (statusCode === "NETWORK_ERROR" || statusCode === "7") {
+      throw new Error(
+        "Unable to connect to Google. Please check your internet connection and try again."
+      );
+    }
+    // statusCode 10 = DEVELOPER_ERROR → usually SHA-1 mismatch
+    if (statusCode === "10" || statusCode === "DEVELOPER_ERROR") {
+      throw new Error(
+        "Google sign-in configuration error. Please contact support."
+      );
+    }
+
+    throw new Error(
+      signInError?.message || "Google sign-in failed. Please try again."
+    );
+  }
 
   if (!isSuccessResponse(signInResult)) {
     throw new Error("Google sign-in was cancelled.");
@@ -54,6 +88,7 @@ export async function signInWithGoogle() {
   const idToken = signInResult.data?.idToken;
 
   if (!idToken) {
+    console.error("[GoogleSignIn] No ID token in response:", signInResult);
     throw new Error("Google sign-in did not return an ID token.");
   }
 
@@ -62,7 +97,10 @@ export async function signInWithGoogle() {
     token: idToken,
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error("[GoogleSignIn] Supabase signInWithIdToken failed:", error);
+    throw error;
+  }
 
   return data;
 }

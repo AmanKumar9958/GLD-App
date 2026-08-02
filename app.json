@@ -56,7 +56,8 @@
           "project": "react-native",
           "organization": "gld-shikshalaya"
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true
