@@ -237,6 +237,19 @@ export async function deleteCourse(courseId: string): Promise<void> {
 // Modules
 // ---------------------------------------------------------------------------
 
+export async function getModulesWithPreviewInfo(courseId: string): Promise<
+  (DatabaseModule & { videos: { is_preview: boolean }[] })[]
+> {
+  const { data, error } = await supabase
+    .from("modules")
+    .select("*, videos(is_preview)")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as (DatabaseModule & { videos: { is_preview: boolean }[] })[];
+}
+
 export async function getModules(courseId: string): Promise<DatabaseModule[]> {
   const { data, error } = await supabase
     .from("modules")

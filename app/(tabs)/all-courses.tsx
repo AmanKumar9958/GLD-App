@@ -28,7 +28,7 @@ import {
 } from "../../context/WishlistContext";
 import {
   getCourseCategories,
-  getModules,
+  getModulesWithPreviewInfo,
   getPaginatedCourses,
 } from "../../services/courseService";
 import { createCashfreeOrder, startCashfreePayment } from "../../services/paymentService";
@@ -41,6 +41,11 @@ type AllCourse = {
   category: string;
   price: number;
   image: string;
+};
+
+type ModuleDisplayItem = {
+  title: string;
+  isDemo: boolean;
 };
 
 type CategoryFilter = "All" | string;
@@ -143,7 +148,7 @@ export default function AllCoursesScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [isModulePopupVisible, setIsModulePopupVisible] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<AllCourse | null>(null);
-  const [selectedCourseModules, setSelectedCourseModules] = useState<string[]>(
+  const [selectedCourseModules, setSelectedCourseModules] = useState<ModuleDisplayItem[]>(
     [],
   );
   const [isModulesLoading, setIsModulesLoading] = useState(false);
@@ -247,7 +252,7 @@ export default function AllCoursesScreen() {
     setIsModulePopupVisible(true);
 
     // Check if we already have this course's modules cached — skip loading state
-    const cached = queryClient.getQueryData<string[]>(['courseModules', course.id]);
+    const cached = queryClient.getQueryData<ModuleDisplayItem[]>(['courseModules', course.id]);
     if (cached) {
       setSelectedCourseModules(cached);
       return;
@@ -259,8 +264,23 @@ export default function AllCoursesScreen() {
       const moduleTitles = await queryClient.fetchQuery({
         queryKey: ['courseModules', course.id],
         queryFn: async () => {
-          const modules = await getModules(course.id);
-          return modules.map((m) => m.title);
+          const rawModules = await getModulesWithPreviewInfo(course.id);
+          const parents = rawModules.filter((m) => !m.parent_id);
+          const children = rawModules.filter((m) => m.parent_id);
+
+          const items: ModuleDisplayItem[] = [];
+          for (const parent of parents) {
+            items.push({ title: parent.title, isDemo: false });
+            // Find children of this parent that have at least one preview video
+            const demoChildren = children.filter(
+              (c) => c.parent_id === parent.id &&
+                     c.videos?.some((v) => v.is_preview)
+            );
+            for (const child of demoChildren) {
+              items.push({ title: child.title, isDemo: true });
+            }
+          }
+          return items;
         },
         staleTime: 1000 * 60 * 5, // 5 minutes — module titles rarely change
       });
@@ -574,19 +594,42 @@ export default function AllCoursesScreen() {
                       contentContainerStyle={styles.modulePopupListContent}
                       showsVerticalScrollIndicator={false}
                     >
-                      {selectedCourseModules.map((moduleName, index) => (
-                        <View
-                          key={`${moduleName}-${index}`}
-                          style={styles.modulePopupItem}
-                        >
-                          <Text style={styles.modulePopupItemIndex}>
-                            {index + 1}.
-                          </Text>
-                          <Text style={styles.modulePopupItemText}>
-                            {moduleName}
-                          </Text>
-                        </View>
-                      ))}
+                      {(() => {
+                        let parentIndex = 0;
+                        return selectedCourseModules.map((item, index) => {
+                          if (!item.isDemo) parentIndex++;
+                          return (
+                            <View
+                              key={`${item.title}-${index}`}
+                              style={[
+                                styles.modulePopupItem,
+                                item.isDemo && styles.modulePopupDemoItem,
+                              ]}
+                            >
+                              {item.isDemo ? (
+                                <Ionicons name="play-circle-outline" size={16} color="#22C55E" />
+                              ) : (
+                                <Text style={styles.modulePopupItemIndex}>
+                                  {parentIndex}.
+                                </Text>
+                              )}
+                              <Text
+                                style={[
+                                  styles.modulePopupItemText,
+                                  item.isDemo && styles.modulePopupDemoItemText,
+                                ]}
+                              >
+                                {item.title}
+                              </Text>
+                              {item.isDemo && (
+                                <View style={styles.demoBadge}>
+                                  <Text style={styles.demoBadgeText}>Demo</Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        });
+                      })()}
                     </ScrollView>
                   )}
 
@@ -1051,6 +1094,27 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       fontSize: 13,
       color: colors.textPrimary,
       fontWeight: "600",
+    },
+    modulePopupDemoItem: {
+      marginLeft: 16,
+      borderColor: isDark ? "rgba(34,197,94,0.25)" : "rgba(34,197,94,0.2)",
+      backgroundColor: isDark ? "rgba(34,197,94,0.06)" : "rgba(34,197,94,0.05)",
+    },
+    modulePopupDemoItemText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    demoBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+      backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.12)",
+    },
+    demoBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: "#22C55E",
+      letterSpacing: 0.5,
     },
     modulePopupActionsRow: {
       marginTop: 10,
