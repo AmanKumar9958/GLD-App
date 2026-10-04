@@ -1,4 +1,5 @@
 import { createMMKV, MMKV } from "react-native-mmkv";
+import * as SecureStore from "expo-secure-store";
 
 // ─── Lazy + safe singleton ─────────────────────────────────────────────────────
 // `new MMKV()` is deferred and wrapped in try/catch.
@@ -57,25 +58,131 @@ export const mmkv = new Proxy({} as MMKV, {
   },
 });
 
-// ─── Supabase auth storage adapter ────────────────────────────────────────────
+// ─── Secure Supabase auth storage adapter ────────────────────────────────────
+// Stores auth tokens in a dedicated, encrypted MMKV instance (AES-128 CFB).
+// The encryption key itself is generated once and saved into the device's
+// hardware-backed secure storage (iOS Keychain / Android Keystore) via expo-secure-store.
+
+const SECURE_AUTH_MMKV_ID = "gld.supabase.auth";
+const SECURE_STORE_KEY = "gld_auth_mmkv_encryption_key";
+
+let _secureAuthMMKV: MMKV | null = null;
+let _secureAuthInitPromise: Promise<MMKV | null> | null = null;
+
+function generateSecureRandomHex(length: number = 32): string {
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = new Uint8Array(length / 2);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  let result = "";
+  const chars = "abcdef0123456789";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+async function getOrCreateAuthEncryptionKey(): Promise<string> {
+  try {
+    let key = await SecureStore.getItemAsync(SECURE_STORE_KEY);
+    if (!key) {
+      key = generateSecureRandomHex(32);
+      await SecureStore.setItemAsync(SECURE_STORE_KEY, key);
+    }
+    return key;
+  } catch (err) {
+    console.warn("[storage] SecureStore unavailable, using fallback key for auth MMKV encryption.", err);
+    return "gld_fallback_device_key_secure_2026";
+  }
+}
+
+async function getSecureAuthMMKV(): Promise<MMKV | null> {
+  if (_secureAuthMMKV) return _secureAuthMMKV;
+  if (_secureAuthInitPromise) return _secureAuthInitPromise;
+
+  _secureAuthInitPromise = (async () => {
+    try {
+      const encryptionKey = await getOrCreateAuthEncryptionKey();
+      _secureAuthMMKV = createMMKV({
+        id: SECURE_AUTH_MMKV_ID,
+        encryptionKey,
+      });
+      return _secureAuthMMKV;
+    } catch (err) {
+      console.warn("[storage] Failed to initialize encrypted MMKV for auth.", err);
+      return null;
+    }
+  })();
+
+  return _secureAuthInitPromise;
+}
 
 export const supabaseStorageAdapter = {
-  getItem: (key: string): string | null => {
-    const instance = getMMKV();
-    if (instance) return instance.getString(key) ?? null;
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      const secureInstance = await getSecureAuthMMKV();
+      if (secureInstance) {
+        const secureVal = secureInstance.getString(key);
+        if (secureVal) return secureVal;
+
+        // Auto-migration: If an unencrypted session token exists in standard MMKV, migrate it
+        const defaultInstance = getMMKV();
+        const oldVal = defaultInstance ? defaultInstance.getString(key) : _memStore.get(key);
+        if (oldVal) {
+          console.log(`[storage] Migrating session key '${key}' to encrypted MMKV storage.`);
+          secureInstance.set(key, oldVal);
+          if (defaultInstance && defaultInstance.contains(key)) {
+            defaultInstance.remove(key);
+          }
+          _memStore.delete(key);
+          return oldVal;
+        }
+        return null;
+      }
+    } catch (err) {
+      console.warn(`[storage] Error reading encrypted key '${key}':`, err);
+    }
     return _memStore.get(key) ?? null;
   },
-  setItem: (key: string, value: string): void => {
-    const instance = getMMKV();
-    if (instance) { instance.set(key, value); return; }
+
+  setItem: async (key: string, value: string): Promise<void> => {
+    try {
+      const secureInstance = await getSecureAuthMMKV();
+      if (secureInstance) {
+        secureInstance.set(key, value);
+        // Ensure old unencrypted key is removed if it existed
+        const defaultInstance = getMMKV();
+        if (defaultInstance && defaultInstance.contains(key)) {
+          defaultInstance.remove(key);
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn(`[storage] Error saving encrypted key '${key}':`, err);
+    }
     _memStore.set(key, value);
   },
-  removeItem: (key: string): void => {
-    const instance = getMMKV();
-    if (instance) { instance.remove(key); return; }
+
+  removeItem: async (key: string): Promise<void> => {
+    try {
+      const secureInstance = await getSecureAuthMMKV();
+      if (secureInstance && secureInstance.contains(key)) {
+        secureInstance.remove(key);
+      }
+    } catch (err) {
+      console.warn(`[storage] Error removing encrypted key '${key}':`, err);
+    }
+
+    // Clean up unencrypted store as well
+    const defaultInstance = getMMKV();
+    if (defaultInstance && defaultInstance.contains(key)) {
+      defaultInstance.remove(key);
+    }
     _memStore.delete(key);
   },
 };
+
 
 // ─── TanStack Query persister storage adapter ─────────────────────────────────
 
