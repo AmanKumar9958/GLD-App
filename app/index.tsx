@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Animated,
@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   UIManager,
   View,
-  type ReactNode,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
