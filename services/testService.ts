@@ -132,3 +132,122 @@ export async function fetchAttemptById(
   }
   return data as DatabaseTestAttempt;
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  attemptId: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string | null;
+  score: number;
+  totalMarks: number;
+  accuracy: number;
+  timeTakenSeconds: number;
+  isCurrentUser: boolean;
+}
+
+export interface AttemptAnalysisDetails {
+  attempt: DatabaseTestAttempt;
+  test: DatabaseMockTest;
+  questions: DatabaseTestQuestion[];
+  rank: number;
+  totalTakers: number;
+  percentile: number;
+}
+
+/**
+ * Fetch detailed analysis for a completed test attempt including test details,
+ * all questions, rank, and percentile.
+ */
+export async function fetchAttemptDetails(
+  attemptId: string,
+  currentUserId?: string
+): Promise<AttemptAnalysisDetails | null> {
+  const attempt = await fetchAttemptById(attemptId);
+  if (!attempt) return null;
+
+  const testData = await fetchTestWithQuestions(attempt.test_id);
+  if (!testData) return null;
+
+  // Fetch all attempts for this test to calculate relative rank & percentile
+  const { data: attempts, error } = await supabase
+    .from("test_attempts")
+    .select("id, user_id, score, time_taken_seconds")
+    .eq("test_id", attempt.test_id)
+    .order("score", { ascending: false })
+    .order("time_taken_seconds", { ascending: true });
+
+  const allAttempts = attempts || [];
+  const totalTakers = Math.max(allAttempts.length, 1);
+  const myIndex = allAttempts.findIndex((a) => a.id === attempt.id);
+  const rank = myIndex !== -1 ? myIndex + 1 : 1;
+  const percentile =
+    totalTakers > 1
+      ? Math.max(0, Math.min(100, Number((((totalTakers - rank) / totalTakers) * 100).toFixed(2))))
+      : 100;
+
+  return {
+    attempt,
+    test: testData,
+    questions: testData.questions,
+    rank,
+    totalTakers,
+    percentile,
+  };
+}
+
+/**
+ * Fetch leaderboard for a given test.
+ */
+export async function fetchTestLeaderboard(
+  testId: string,
+  currentUserId?: string
+): Promise<LeaderboardEntry[]> {
+  const { data: attempts, error } = await supabase
+    .from("test_attempts")
+    .select("id, user_id, score, total_marks, accuracy_percentage, time_taken_seconds")
+    .eq("test_id", testId)
+    .order("score", { ascending: false })
+    .order("time_taken_seconds", { ascending: true })
+    .limit(50);
+
+  if (error || !attempts) {
+    console.error("Error fetching test leaderboard:", error);
+    return [];
+  }
+
+  // Get user details for unique userIds
+  const userIds = Array.from(new Set(attempts.map((a) => a.user_id).filter(Boolean)));
+  const userMap: Record<string, { name: string; photo_url: string | null }> = {};
+
+  if (userIds.length > 0) {
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, name, photo_url")
+      .in("id", userIds);
+
+    if (users) {
+      users.forEach((u) => {
+        userMap[u.id] = { name: u.name, photo_url: u.photo_url };
+      });
+    }
+  }
+
+  return attempts.map((att, idx) => {
+    const uInfo = userMap[att.user_id];
+    const isCurrent = currentUserId ? att.user_id === currentUserId : false;
+    return {
+      rank: idx + 1,
+      attemptId: att.id,
+      userId: att.user_id,
+      userName: uInfo?.name || `Aspirant #${att.user_id ? att.user_id.slice(0, 5) : idx + 1}`,
+      userPhoto: uInfo?.photo_url,
+      score: att.score,
+      totalMarks: att.total_marks,
+      accuracy: att.accuracy_percentage,
+      timeTakenSeconds: att.time_taken_seconds,
+      isCurrentUser: isCurrent,
+    };
+  });
+}
+
