@@ -49,3 +49,4 @@ google-services.json
 node-modules/
 .env.local
 security_audit_report.md
+/screen_design

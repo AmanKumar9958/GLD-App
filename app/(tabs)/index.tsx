@@ -387,6 +387,27 @@ export default function HomeScreen() {
           <Text style={styles.bannerPercent}>10%</Text>
         </View>
 
+        {/* Mock Test Series Promo Banner */}
+        <Pressable
+          style={styles.mockTestPromoBanner}
+          onPress={() => router.push("/(tabs)/mock-tests" as any)}
+        >
+          <View style={styles.mockTestPromoContent}>
+            <View style={styles.mockTestBadgeRow}>
+              <View style={styles.mockTestLiveBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.mockTestLiveBadgeText}>TEST SERIES</Text>
+              </View>
+              <Text style={styles.mockTestFreeTag}>FREE MOCKS</Text>
+            </View>
+            <Text style={styles.mockTestPromoTitle}>SSC, Banking & State Mocks</Text>
+            <Text style={styles.mockTestPromoSubtitle}>Real exam UI • 5-state palette • Detailed analysis</Text>
+          </View>
+          <View style={styles.mockTestArrowCircle}>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </View>
+        </Pressable>
+
         <View style={styles.categoryRow}>
           {categories.map((item) => {
             const isMore = item.id === "more";
@@ -631,6 +652,80 @@ const createStyles = (colors: AppThemeColors, isDark: boolean) =>
       fontWeight: "800",
       letterSpacing: -1,
       marginTop: 2,
+    },
+    mockTestPromoBanner: {
+      marginHorizontal: 16,
+      marginTop: 14,
+      borderRadius: 18,
+      padding: 16,
+      backgroundColor: "#1E293B",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderWidth: 1,
+      borderColor: "#334155",
+      shadowColor: "#000",
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    mockTestPromoContent: {
+      flex: 1,
+      marginRight: 12,
+    },
+    mockTestBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6,
+    },
+    mockTestLiveBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#DC262620",
+      borderWidth: 1,
+      borderColor: "#EF4444",
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+      gap: 5,
+    },
+    liveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: "#EF4444",
+    },
+    mockTestLiveBadgeText: {
+      color: "#EF4444",
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.5,
+    },
+    mockTestFreeTag: {
+      color: "#10B981",
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.5,
+    },
+    mockTestPromoTitle: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "700",
+      marginBottom: 3,
+    },
+    mockTestPromoSubtitle: {
+      color: "#94A3B8",
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    mockTestArrowCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: "#3B82F6",
+      alignItems: "center",
+      justifyContent: "center",
     },
     categoryRow: {
       marginTop: 18,
