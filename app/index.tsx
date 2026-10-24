@@ -68,7 +68,6 @@ const trustBadges = [
 export default function Index() {
   const { isAuthResolved, isAuthenticated } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isReviewerSigningIn, setIsReviewerSigningIn] = useState(false); // <-- Reviewer Loading State
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
   // ─── Animations ────────────────────────────────────────────
@@ -267,24 +266,7 @@ export default function Index() {
     }
   };
 
-  // ─── Reviewer Backdoor Handler ────────────────────────────
-  const handleReviewerLogin = async () => {
-    try {
-      setIsReviewerSigningIn(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: 'reviewer@gld.com',
-        password: 'GldReview@2026',
-      });
 
-      if (error) throw error;
-      // Note: AuthContext should automatically detect the session change and redirect to /(tabs)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to login securely.";
-      Alert.alert("Reviewer Login Failed", message);
-    } finally {
-      setIsReviewerSigningIn(false);
-    }
-  };
 
   // ─── Auth guards ──────────────────────────────────────────
   if (!isAuthResolved) {
@@ -458,7 +440,7 @@ export default function Index() {
               pressed && styles.googleButtonPressed,
             ]}
             onPress={handleGoogleSignIn}
-            disabled={isSigningIn || isReviewerSigningIn}
+            disabled={isSigningIn}
           >
             <AppGradient
               colors={["#2D68ED", "#6C3CE0", "#E43D64"]}
@@ -496,30 +478,7 @@ export default function Index() {
           </Text>
         </Animated.View>
 
-        {/* ─── Play Store Reviewer Backdoor ─────────────── */}
-        <Animated.View
-          style={[
-            styles.reviewerWrap,
-            {
-              opacity: buttonAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 1],
-              }),
-            },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={handleReviewerLogin}
-            disabled={isSigningIn || isReviewerSigningIn}
-            hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
-          >
-            {isReviewerSigningIn ? (
-              <Spinner size={14} color="#A0ABC0" />
-            ) : (
-              <Text style={styles.reviewerText}>App Reviewer Login</Text>
-            )}
-          </TouchableOpacity>
-        </Animated.View>
+
 
       </AppGradient>
     </SafeAreaView>
@@ -752,16 +711,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Reviewer Backdoor
-  reviewerWrap: {
-    marginTop: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reviewerText: {
-    fontSize: 12,
-    color: "#A0ABC0", // Very subtle gray
-    fontWeight: "500",
-    letterSpacing: 0.5,
-  },
 });
