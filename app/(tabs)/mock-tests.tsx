@@ -330,7 +330,7 @@ export default function MockTestsScreen() {
                 No test attempts yet
               </Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Take your first mock test to see your score, rank, and detailed solutions here!
+                Take your first mock test to see your score, performance analysis, and detailed solutions here!
               </Text>
               <Pressable
                 style={[styles.startBtn, { backgroundColor: colors.primary, marginTop: 16 }]}

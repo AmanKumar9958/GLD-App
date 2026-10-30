@@ -15,15 +15,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import {
   fetchAttemptDetails,
-  fetchTestLeaderboard,
   AttemptAnalysisDetails,
-  LeaderboardEntry,
 } from "../../../services/testService";
 import { DatabaseTestQuestion } from "../../../types/supabase";
 
 const { width } = Dimensions.get("window");
 
-type TabType = "analysis" | "solutions" | "leaderboard";
+type TabType = "analysis" | "solutions";
 type FilterType = "all" | "correct" | "incorrect" | "unattempted";
 
 export default function TestResultScreen() {
@@ -33,9 +31,7 @@ export default function TestResultScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>("analysis");
   const [details, setDetails] = useState<AttemptAnalysisDetails | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
   // Solutions Tab States
   const [solutionFilter, setSolutionFilter] = useState<FilterType>("all");
@@ -57,24 +53,6 @@ export default function TestResultScreen() {
     }
     loadData();
   }, [attemptId, user?.id]);
-
-  // Load Leaderboard when tab selected
-  useEffect(() => {
-    async function loadLeaderboard() {
-      if (activeTab === "leaderboard" && details?.test.id) {
-        try {
-          setIsLeaderboardLoading(true);
-          const data = await fetchTestLeaderboard(details.test.id, user?.id);
-          setLeaderboard(data);
-        } catch (err) {
-          console.error("Failed to load leaderboard:", err);
-        } finally {
-          setIsLeaderboardLoading(false);
-        }
-      }
-    }
-    loadLeaderboard();
-  }, [activeTab, details?.test.id, user?.id]);
 
   // Format seconds to mm:ss or hh:mm:ss
   const formatTime = (secs: number) => {
@@ -108,7 +86,7 @@ export default function TestResultScreen() {
     if (!details) return;
     try {
       await Share.share({
-        message: `I scored ${details.attempt.score}/${details.attempt.total_marks} with ${details.attempt.accuracy_percentage}% accuracy in "${details.test.title}" on GLD Institute Mock Test Platform! Can you beat my rank? 🏆`,
+        message: `I scored ${details.attempt.score}/${details.attempt.total_marks} with ${details.attempt.accuracy_percentage}% accuracy in "${details.test.title}" on GLD Institute Mock Test Platform! 🏆`,
       });
     } catch (err) {
       console.error("Error sharing score:", err);
@@ -176,13 +154,13 @@ export default function TestResultScreen() {
     );
   }
 
-  const { attempt, test, questions, rank, totalTakers, percentile } = details;
+  const { attempt, test, questions } = details;
   const currentQ = filteredQuestions[selectedQuestionIndex] || filteredQuestions[0];
   const currentAnswer = currentQ ? attempt.answers?.[currentQ.id] : undefined;
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.darkContainer}>
-      {/* 1. TOP APP BAR (matching 6.jpeg) */}
+      {/* 1. TOP APP BAR */}
       <View style={styles.topBar}>
         <Pressable
           style={styles.iconButton}
@@ -206,7 +184,7 @@ export default function TestResultScreen() {
         </View>
       </View>
 
-      {/* 2. PROMO / MOTIVATION BANNER (matching 6.jpeg) */}
+      {/* 2. PROMO / MOTIVATION BANNER */}
       <View style={styles.bannerContainer}>
         <View style={styles.bannerLeft}>
           <View style={styles.bannerBrandRow}>
@@ -234,7 +212,7 @@ export default function TestResultScreen() {
         </View>
       </View>
 
-      {/* 3. TABS: Analysis | Solutions | Leaderboard (matching 6.jpeg) */}
+      {/* 3. TABS: Analysis | Solutions */}
       <View style={styles.tabBar}>
         <Pressable
           style={[styles.tabItem, activeTab === "analysis" && styles.tabItemActive]}
@@ -258,17 +236,6 @@ export default function TestResultScreen() {
             style={[styles.tabItemText, activeTab === "solutions" && styles.tabItemTextActive]}
           >
             Solutions
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.tabItem, activeTab === "leaderboard" && styles.tabItemActive]}
-          onPress={() => setActiveTab("leaderboard")}
-        >
-          <Text
-            style={[styles.tabItemText, activeTab === "leaderboard" && styles.tabItemTextActive]}
-          >
-            Leaderboard
           </Text>
         </Pressable>
       </View>
@@ -299,27 +266,16 @@ export default function TestResultScreen() {
             </View>
           </View>
 
-          {/* CARD 1: RANK (matching 6.jpeg) */}
-          <View style={styles.metricCard}>
-            <View style={styles.metricLeft}>
-              <View style={[styles.metricIconBox, { backgroundColor: "#361B23" }]}>
-                <Ionicons name="flag-outline" size={24} color="#F43F5E" />
-              </View>
-              <Text style={styles.metricLabel}>Rank</Text>
-            </View>
-            <Text style={styles.metricValue}>
-              {rank}
-              <Text style={styles.metricSubValue}>/{totalTakers}</Text>
-            </Text>
-          </View>
-
-          {/* CARD 2: SCORE (matching 6.jpeg) */}
+          {/* CARD 1: TOTAL MARKS */}
           <View style={styles.metricCard}>
             <View style={styles.metricLeft}>
               <View style={[styles.metricIconBox, { backgroundColor: "#2A1B3D" }]}>
                 <Ionicons name="trophy-outline" size={24} color="#A855F7" />
               </View>
-              <Text style={styles.metricLabel}>Score</Text>
+              <View>
+                <Text style={styles.metricLabel}>Total Marks</Text>
+                <Text style={styles.metricSubLabel}>Max Score: {attempt.total_marks}</Text>
+              </View>
             </View>
             <Text style={styles.metricValue}>
               {attempt.score}
@@ -327,21 +283,42 @@ export default function TestResultScreen() {
             </Text>
           </View>
 
-          {/* CARD 3: GROUPED CARD (Percentile, Accuracy, Qs. Attempted - matching 6.jpeg) */}
-          <View style={styles.groupedMetricCard}>
-            {/* Percentile Row */}
-            <View style={styles.groupedRow}>
-              <View style={styles.metricLeft}>
-                <View style={[styles.metricIconBox, { backgroundColor: "#2D1D3A" }]}>
-                  <Ionicons name="person-outline" size={22} color="#C084FC" />
-                </View>
-                <Text style={styles.metricLabel}>Percentile</Text>
+          {/* CARD 2: CORRECT QUESTIONS */}
+          <View style={styles.metricCard}>
+            <View style={styles.metricLeft}>
+              <View style={[styles.metricIconBox, { backgroundColor: "#064E3B40" }]}>
+                <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
               </View>
-              <Text style={styles.metricValue}>{percentile} %</Text>
+              <View>
+                <Text style={styles.metricLabel}>Correct Questions</Text>
+                <Text style={styles.metricSubLabel}>+{((attempt.correct_count) * (test.positive_marks || 1)).toFixed(1)} marks earned</Text>
+              </View>
             </View>
+            <Text style={[styles.metricValue, { color: "#10B981" }]}>
+              {attempt.correct_count}
+              <Text style={styles.metricSubValue}>/{attempt.total_questions}</Text>
+            </Text>
+          </View>
 
-            <View style={styles.groupedDivider} />
+          {/* CARD 3: INCORRECT QUESTIONS */}
+          <View style={styles.metricCard}>
+            <View style={styles.metricLeft}>
+              <View style={[styles.metricIconBox, { backgroundColor: "#7F1D1D40" }]}>
+                <Ionicons name="close-circle-outline" size={24} color="#EF4444" />
+              </View>
+              <View>
+                <Text style={styles.metricLabel}>Incorrect Questions</Text>
+                <Text style={styles.metricSubLabel}>-{((attempt.incorrect_count) * (test.negative_marks || 0.25)).toFixed(2)} negative marks</Text>
+              </View>
+            </View>
+            <Text style={[styles.metricValue, { color: "#EF4444" }]}>
+              {attempt.incorrect_count}
+              <Text style={styles.metricSubValue}>/{attempt.total_questions}</Text>
+            </Text>
+          </View>
 
+          {/* GROUPED CARD (Accuracy, Qs. Attempted, Unattempted) */}
+          <View style={styles.groupedMetricCard}>
             {/* Accuracy Row */}
             <View style={styles.groupedRow}>
               <View style={styles.metricLeft}>
@@ -368,9 +345,25 @@ export default function TestResultScreen() {
                 <Text style={styles.metricSubValue}>/{attempt.total_questions}</Text>
               </Text>
             </View>
+
+            <View style={styles.groupedDivider} />
+
+            {/* Unattempted Row */}
+            <View style={styles.groupedRow}>
+              <View style={styles.metricLeft}>
+                <View style={[styles.metricIconBox, { backgroundColor: "#20232A" }]}>
+                  <Ionicons name="help-circle-outline" size={22} color="#9CA3AF" />
+                </View>
+                <Text style={styles.metricLabel}>Unattempted</Text>
+              </View>
+              <Text style={styles.metricValue}>
+                {attempt.unattempted_count}
+                <Text style={styles.metricSubValue}>/{attempt.total_questions}</Text>
+              </Text>
+            </View>
           </View>
 
-          {/* 3 BOTTOM CHIPS: Correct | Incorrect | Unattempted (matching 6.jpeg) */}
+          {/* 3 BOTTOM CHIPS: Correct | Incorrect | Unattempted */}
           <View style={styles.chipsRow}>
             <View style={styles.chipCorrect}>
               <Ionicons name="checkmark-circle" size={16} color="#10B981" />
@@ -727,131 +720,6 @@ export default function TestResultScreen() {
           )}
         </View>
       )}
-
-      {/* 6. LEADERBOARD TAB */}
-      {activeTab === "leaderboard" && (
-        <ScrollView
-          style={styles.tabContentScroll}
-          contentContainerStyle={styles.leaderboardContentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {isLeaderboardLoading ? (
-            <View style={styles.centerLoading}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={styles.loadingText}>Fetching toppers...</Text>
-            </View>
-          ) : leaderboard.length === 0 ? (
-            <View style={styles.centerLoading}>
-              <Ionicons name="trophy-outline" size={48} color="#64748B" />
-              <Text style={styles.emptyLeaderboardText}>
-                No test submissions yet. Be the first to top the leaderboard!
-              </Text>
-            </View>
-          ) : (
-            <>
-              {/* Podium View for Top 3 */}
-              <View style={styles.podiumContainer}>
-                {/* 2nd Place */}
-                {leaderboard[1] && (
-                  <View style={[styles.podiumCol, { marginTop: 24 }]}>
-                    <View style={styles.podiumAvatarBox}>
-                      <Text style={styles.podiumAvatarText}>
-                        {leaderboard[1].userName.charAt(0).toUpperCase()}
-                      </Text>
-                      <View style={[styles.podiumBadge, { backgroundColor: "#94A3B8" }]}>
-                        <Text style={styles.podiumBadgeText}>2</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.podiumName} numberOfLines={1}>
-                      {leaderboard[1].userName}
-                    </Text>
-                    <Text style={styles.podiumScore}>{leaderboard[1].score} pts</Text>
-                    <View style={[styles.podiumBar, { height: 70, backgroundColor: "#334155" }]} />
-                  </View>
-                )}
-
-                {/* 1st Place */}
-                {leaderboard[0] && (
-                  <View style={styles.podiumCol}>
-                    <Ionicons name="ribbon" size={28} color="#FBBF24" style={{ marginBottom: 4 }} />
-                    <View style={styles.podiumAvatarBox}>
-                      <Text style={styles.podiumAvatarText}>
-                        {leaderboard[0].userName.charAt(0).toUpperCase()}
-                      </Text>
-                      <View style={[styles.podiumBadge, { backgroundColor: "#FBBF24" }]}>
-                        <Text style={[styles.podiumBadgeText, { color: "#000" }]}>1</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.podiumName} numberOfLines={1}>
-                      {leaderboard[0].userName}
-                    </Text>
-                    <Text style={styles.podiumScore}>{leaderboard[0].score} pts</Text>
-                    <View style={[styles.podiumBar, { height: 95, backgroundColor: "#EAB308" }]} />
-                  </View>
-                )}
-
-                {/* 3rd Place */}
-                {leaderboard[2] && (
-                  <View style={[styles.podiumCol, { marginTop: 36 }]}>
-                    <View style={styles.podiumAvatarBox}>
-                      <Text style={styles.podiumAvatarText}>
-                        {leaderboard[2].userName.charAt(0).toUpperCase()}
-                      </Text>
-                      <View style={[styles.podiumBadge, { backgroundColor: "#D97706" }]}>
-                        <Text style={styles.podiumBadgeText}>3</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.podiumName} numberOfLines={1}>
-                      {leaderboard[2].userName}
-                    </Text>
-                    <Text style={styles.podiumScore}>{leaderboard[2].score} pts</Text>
-                    <View style={[styles.podiumBar, { height: 55, backgroundColor: "#78350F" }]} />
-                  </View>
-                )}
-              </View>
-
-              {/* Full Leaderboard List */}
-              <View style={styles.leaderboardList}>
-                <Text style={styles.leaderboardListHeader}>Overall Rankings</Text>
-                {leaderboard.map((item) => (
-                  <View
-                    key={item.attemptId}
-                    style={[
-                      styles.leaderboardRow,
-                      item.isCurrentUser && styles.leaderboardRowHighlight,
-                    ]}
-                  >
-                    <View style={styles.leaderboardRankBadge}>
-                      <Text
-                        style={[
-                          styles.leaderboardRankText,
-                          item.rank <= 3 && { color: "#F59E0B", fontWeight: "700" },
-                        ]}
-                      >
-                        #{item.rank}
-                      </Text>
-                    </View>
-
-                    <View style={styles.leaderboardUserInfo}>
-                      <Text style={styles.leaderboardUserName} numberOfLines={1}>
-                        {item.userName} {item.isCurrentUser && "(You)"}
-                      </Text>
-                      <Text style={styles.leaderboardUserMeta}>
-                        Accuracy: {item.accuracy}% • Time: {formatTime(item.timeTakenSeconds)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.leaderboardScoreBox}>
-                      <Text style={styles.leaderboardScoreValue}>{item.score}</Text>
-                      <Text style={styles.leaderboardScoreMax}>/{item.totalMarks}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </ScrollView>
-      )}
     </SafeAreaView>
   );
 }
@@ -1135,6 +1003,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  metricSubLabel: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    marginTop: 2,
   },
   metricValue: {
     color: "#FFFFFF",
