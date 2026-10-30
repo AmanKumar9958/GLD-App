@@ -16,11 +16,12 @@ import { useAuth } from "../../context/AuthContext";
 import {
   fetchMockTests,
   fetchUserAttempts,
+  fetchMockTestCategories,
 } from "../../services/testService";
 import { DatabaseMockTest, DatabaseTestAttempt } from "../../types/supabase";
 import Skeleton from "../../components/ui/Skeleton";
 
-const CATEGORIES = ["All", "SSC", "Aptitude", "Banking", "Railways"];
+const DEFAULT_CATEGORIES = ["All", "SSC", "Banking", "Railways", "State Exams"];
 
 export default function MockTestsScreen() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function MockTestsScreen() {
 
   const [activeTab, setActiveTab] = useState<"tests" | "attempts">("tests");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [tests, setTests] = useState<DatabaseMockTest[]>([]);
   const [attempts, setAttempts] = useState<DatabaseTestAttempt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,12 +38,16 @@ export default function MockTestsScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [testsData, attemptsData] = await Promise.all([
+      const [testsData, attemptsData, categoriesData] = await Promise.all([
         fetchMockTests(selectedCategory),
         user ? fetchUserAttempts(user.id) : Promise.resolve([]),
+        fetchMockTestCategories(),
       ]);
       setTests(testsData);
       setAttempts(attemptsData);
+      if (categoriesData && categoriesData.length > 0) {
+        setCategories(categoriesData);
+      }
     } catch (err) {
       console.error("Error loading mock tests data:", err);
     } finally {
@@ -141,7 +147,7 @@ export default function MockTestsScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}
           >
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isSelected = selectedCategory === cat;
               return (
                 <Pressable

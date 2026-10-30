@@ -29,6 +29,29 @@ export async function fetchMockTests(category?: string): Promise<DatabaseMockTes
 }
 
 /**
+ * Fetch all unique categories from published mock tests.
+ */
+export async function fetchMockTestCategories(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("mock_tests")
+    .select("category")
+    .eq("is_published", true);
+
+  if (error || !data) {
+    return ["All", "SSC", "Banking", "Railways", "State Exams"];
+  }
+
+  const set = new Set(["All", "SSC", "Banking", "Railways", "State Exams"]);
+  data.forEach((item) => {
+    if (item.category && item.category.trim()) {
+      set.add(item.category.trim());
+    }
+  });
+
+  return Array.from(set);
+}
+
+/**
  * Fetch a single mock test with all its questions ordered by order_index.
  */
 export async function fetchTestWithQuestions(
