@@ -17,6 +17,8 @@ import {
   fetchMockTests,
   fetchUserAttempts,
   fetchMockTestCategories,
+  isAttemptTestAvailable,
+  getAttemptTestTitle,
 } from "../../services/testService";
 import { DatabaseMockTest, DatabaseTestAttempt } from "../../types/supabase";
 import Skeleton from "../../components/ui/Skeleton";
@@ -340,98 +342,138 @@ export default function MockTestsScreen() {
               </Pressable>
             </View>
           ) : (
-            attempts.map((attempt) => (
-              <View
-                key={attempt.id}
-                style={[
-                  styles.attemptCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-              >
-                <View style={styles.attemptTopRow}>
-                  <View style={styles.attemptStatusBadge}>
-                    <Ionicons name="checkmark-done" size={14} color="#10B981" />
-                    <Text style={styles.attemptStatusText}>COMPLETED</Text>
-                  </View>
-                  <Text style={[styles.attemptDate, { color: colors.textSecondary }]}>
-                    {new Date(attempt.submitted_at).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </Text>
-                </View>
+            attempts.map((attempt) => {
+              const isAvailable = isAttemptTestAvailable(attempt);
+              const testTitle = getAttemptTestTitle(attempt);
 
-                {/* Score Summary Row */}
-                <View style={styles.attemptScoreRow}>
-                  <View style={styles.attemptMetricBox}>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                      SCORE
-                    </Text>
-                    <Text style={[styles.metricBigValue, { color: colors.primary }]}>
-                      {attempt.score}{" "}
-                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                        / {attempt.total_marks}
-                      </Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.attemptMetricBox}>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                      ACCURACY
-                    </Text>
-                    <Text style={[styles.metricBigValue, { color: "#10B981" }]}>
-                      {attempt.accuracy_percentage}%
-                    </Text>
-                  </View>
-
-                  <View style={styles.attemptMetricBox}>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
-                      ATTEMPTED
-                    </Text>
-                    <Text style={[styles.metricBigValue, { color: colors.textPrimary }]}>
-                      {attempt.correct_count + attempt.incorrect_count}{" "}
-                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                        / {attempt.total_questions}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Breakdown Tags */}
-                <View style={styles.breakdownRow}>
-                  <View style={[styles.breakdownChip, { backgroundColor: "#DCFCE7" }]}>
-                    <Text style={[styles.breakdownText, { color: "#15803D" }]}>
-                      ✔ {attempt.correct_count} Correct
-                    </Text>
-                  </View>
-                  <View style={[styles.breakdownChip, { backgroundColor: "#FEE2E2" }]}>
-                    <Text style={[styles.breakdownText, { color: "#B91C1C" }]}>
-                      ✖ {attempt.incorrect_count} Incorrect
-                    </Text>
-                  </View>
-                  <View style={[styles.breakdownChip, { backgroundColor: "#F1F5F9" }]}>
-                    <Text style={[styles.breakdownText, { color: "#64748B" }]}>
-                      ⊖ {attempt.unattempted_count} Skipped
-                    </Text>
-                  </View>
-                </View>
-
-                {/* View Result & Solutions CTA */}
-                <Pressable
+              return (
+                <View
+                  key={attempt.id}
                   style={[
-                    styles.viewSolutionsBtn,
-                    { backgroundColor: isDark ? "#1E293B" : "#F8FAFC", borderColor: colors.border },
+                    styles.attemptCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}
-                  onPress={() => router.push(`/test/result/${attempt.id}` as any)}
                 >
-                  <Text style={[styles.viewSolutionsText, { color: colors.primary }]}>
-                    View Analysis & Solutions
+                  <View style={styles.attemptTopRow}>
+                    <View style={styles.attemptStatusWrap}>
+                      <View style={styles.attemptStatusBadge}>
+                        <Ionicons name="checkmark-done" size={14} color="#10B981" />
+                        <Text style={styles.attemptStatusText}>COMPLETED</Text>
+                      </View>
+                      {!isAvailable && (
+                        <View style={styles.expiredBadge}>
+                          <Text style={styles.expiredBadgeText}>EXPIRED / DELETED</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.attemptDate, { color: colors.textSecondary }]}>
+                      {new Date(attempt.submitted_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  </View>
+
+                  {/* Test Title */}
+                  <Text
+                    style={[
+                      styles.attemptTitleText,
+                      { color: isAvailable ? colors.textPrimary : colors.textSecondary },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {testTitle}
                   </Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-                </Pressable>
-              </View>
-            ))
+
+                  {/* Score Summary Row */}
+                  <View style={styles.attemptScoreRow}>
+                    <View style={styles.attemptMetricBox}>
+                      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+                        SCORE
+                      </Text>
+                      <Text style={[styles.metricBigValue, { color: colors.primary }]}>
+                        {attempt.score}{" "}
+                        <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                          / {attempt.total_marks}
+                        </Text>
+                      </Text>
+                    </View>
+
+                    <View style={styles.attemptMetricBox}>
+                      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+                        ACCURACY
+                      </Text>
+                      <Text style={[styles.metricBigValue, { color: "#10B981" }]}>
+                        {attempt.accuracy_percentage}%
+                      </Text>
+                    </View>
+
+                    <View style={styles.attemptMetricBox}>
+                      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+                        ATTEMPTED
+                      </Text>
+                      <Text style={[styles.metricBigValue, { color: colors.textPrimary }]}>
+                        {attempt.correct_count + attempt.incorrect_count}{" "}
+                        <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                          / {attempt.total_questions}
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Breakdown Tags */}
+                  <View style={styles.breakdownRow}>
+                    <View style={[styles.breakdownChip, { backgroundColor: "#DCFCE7" }]}>
+                      <Text style={[styles.breakdownText, { color: "#15803D" }]}>
+                        ✔ {attempt.correct_count} Correct
+                      </Text>
+                    </View>
+                    <View style={[styles.breakdownChip, { backgroundColor: "#FEE2E2" }]}>
+                      <Text style={[styles.breakdownText, { color: "#B91C1C" }]}>
+                        ✖ {attempt.incorrect_count} Incorrect
+                      </Text>
+                    </View>
+                    <View style={[styles.breakdownChip, { backgroundColor: "#F1F5F9" }]}>
+                      <Text style={[styles.breakdownText, { color: "#64748B" }]}>
+                        ⊖ {attempt.unattempted_count} Skipped
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* View Result & Solutions CTA OR Disabled Info */}
+                  {isAvailable ? (
+                    <Pressable
+                      style={[
+                        styles.viewSolutionsBtn,
+                        { backgroundColor: isDark ? "#1E293B" : "#F8FAFC", borderColor: colors.border },
+                      ]}
+                      onPress={() => router.push(`/test/result/${attempt.id}` as any)}
+                    >
+                      <Text style={[styles.viewSolutionsText, { color: colors.primary }]}>
+                        View Analysis & Solutions
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                    </Pressable>
+                  ) : (
+                    <View
+                      style={[
+                        styles.unavailableBtn,
+                        {
+                          backgroundColor: isDark ? "#1E293B30" : "#F8FAFC",
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons name="lock-closed-outline" size={14} color={colors.textSecondary} />
+                      <Text style={[styles.unavailableBtnText, { color: colors.textSecondary }]}>
+                        Analysis Unavailable (Test Deleted/Expired)
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })
           )
         )}
       </ScrollView>
@@ -660,6 +702,29 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  attemptStatusWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  expiredBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  expiredBadgeText: {
+    color: "#B91C1C",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  attemptTitleText: {
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 19,
+    marginTop: -2,
+  },
   attemptStatusBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -721,5 +786,18 @@ const styles = StyleSheet.create({
   viewSolutionsText: {
     fontSize: 13,
     fontWeight: "700",
+  },
+  unavailableBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  unavailableBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

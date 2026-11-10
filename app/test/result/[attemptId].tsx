@@ -142,7 +142,10 @@ export default function TestResultScreen() {
       <SafeAreaView style={styles.darkContainer}>
         <View style={styles.centerLoading}>
           <Ionicons name="alert-circle-outline" size={54} color="#EF4444" />
-          <Text style={styles.errorText}>Test result not found.</Text>
+          <Text style={styles.errorText}>Test is no longer available.</Text>
+          <Text style={{ fontSize: 13, color: "#94A3B8", textAlign: "center", marginTop: 6, marginBottom: 16, paddingHorizontal: 24 }}>
+            This test has been deleted or expired by the administrator. Question solutions are unavailable.
+          </Text>
           <Pressable
             style={styles.backButtonAction}
             onPress={() => router.replace("/(tabs)/mock-tests" as any)}

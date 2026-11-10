@@ -157,6 +157,17 @@ export interface DatabaseTestAttempt {
   status: "in_progress" | "completed";
   started_at: string;
   submitted_at: string;
+  mock_tests?: {
+    id: string;
+    title: string;
+    is_published?: boolean;
+    total_marks?: number;
+  } | {
+    id: string;
+    title: string;
+    is_published?: boolean;
+    total_marks?: number;
+  }[] | null;
 }
 
 export interface MockTestWithQuestions extends DatabaseMockTest {

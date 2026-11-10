@@ -61,10 +61,14 @@ export async function fetchTestWithQuestions(
     .from("mock_tests")
     .select("*")
     .eq("id", testId)
-    .single();
+    .maybeSingle();
 
-  if (testErr || !test) {
+  if (testErr) {
     console.error("Error fetching test:", testErr);
+    return null;
+  }
+
+  if (!test) {
     return null;
   }
 
@@ -114,6 +118,7 @@ export async function submitTestAttempt(
 
 /**
  * Fetch all past attempts for a user on a specific test (or all tests).
+ * Joins mock_tests to determine if the test still exists and is published.
  */
 export async function fetchUserAttempts(
   userId: string,
@@ -121,7 +126,7 @@ export async function fetchUserAttempts(
 ): Promise<DatabaseTestAttempt[]> {
   let query = supabase
     .from("test_attempts")
-    .select("*")
+    .select("*, mock_tests(id, title, is_published, total_marks)")
     .eq("user_id", userId)
     .order("submitted_at", { ascending: false });
 
@@ -131,10 +136,65 @@ export async function fetchUserAttempts(
 
   const { data, error } = await query;
   if (error) {
-    console.error("Error fetching user test attempts:", error);
-    return [];
+    console.warn("Failed fetching user test attempts with join, falling back:", error);
+    const { data: rawAttempts, error: rawError } = await supabase
+      .from("test_attempts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("submitted_at", { ascending: false });
+
+    if (rawError || !rawAttempts) {
+      console.error("Error fetching user test attempts fallback:", rawError);
+      return [];
+    }
+
+    const testIds = Array.from(new Set(rawAttempts.map((a) => a.test_id)));
+    if (testIds.length === 0) return [];
+
+    const { data: existingTests } = await supabase
+      .from("mock_tests")
+      .select("id, title, is_published, total_marks")
+      .in("id", testIds);
+
+    const testMap = new Map((existingTests || []).map((t) => [t.id, t]));
+
+    return rawAttempts.map((a) => ({
+      ...a,
+      mock_tests: testMap.get(a.test_id) || null,
+    })) as DatabaseTestAttempt[];
   }
+
   return (data || []) as DatabaseTestAttempt[];
+}
+
+/**
+ * Helper to check if the test associated with an attempt is active and not deleted/expired.
+ */
+export function isAttemptTestAvailable(attempt: DatabaseTestAttempt): boolean {
+  const mockTest = Array.isArray(attempt.mock_tests)
+    ? attempt.mock_tests[0]
+    : attempt.mock_tests;
+
+  if (!mockTest || !mockTest.id) {
+    return false;
+  }
+
+  if (mockTest.is_published === false) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Helper to retrieve test title from an attempt.
+ */
+export function getAttemptTestTitle(attempt: DatabaseTestAttempt): string {
+  const mockTest = Array.isArray(attempt.mock_tests)
+    ? attempt.mock_tests[0]
+    : attempt.mock_tests;
+
+  return mockTest?.title || "Mock Test";
 }
 
 /**
@@ -147,7 +207,7 @@ export async function fetchAttemptById(
     .from("test_attempts")
     .select("*")
     .eq("id", attemptId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("Error fetching attempt by id:", error);
