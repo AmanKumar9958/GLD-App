@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,32 @@ export default function TestResultScreen() {
   // Solutions Tab States
   const [solutionFilter, setSolutionFilter] = useState<FilterType>("all");
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+  const solutionsScrollRef = useRef<ScrollView>(null);
+
+  const handleSelectQuestion = (index: number) => {
+    setSelectedQuestionIndex(index);
+    solutionsScrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const handleSelectFilter = (filter: FilterType) => {
+    setSolutionFilter(filter);
+    setSelectedQuestionIndex(0);
+    solutionsScrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const handleNextQuestion = () => {
+    if (selectedQuestionIndex < filteredQuestions.length - 1) {
+      setSelectedQuestionIndex((prev) => prev + 1);
+      solutionsScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (selectedQuestionIndex > 0) {
+      setSelectedQuestionIndex((prev) => prev - 1);
+      solutionsScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  };
 
   // Load Attempt Details
   useEffect(() => {
@@ -187,35 +213,7 @@ export default function TestResultScreen() {
         </View>
       </View>
 
-      {/* 2. PROMO / MOTIVATION BANNER */}
-      <View style={styles.bannerContainer}>
-        <View style={styles.bannerLeft}>
-          <View style={styles.bannerBrandRow}>
-            <Text style={styles.brandTitle}>GLD</Text>
-            <View style={styles.brandDivider} />
-            <Text style={styles.brandSubtitle}>ACHIEVERS LAB</Text>
-          </View>
-          <Text style={styles.bannerHeadline}>Your Story,</Text>
-          <Text style={styles.bannerHeadlineAccent}>Their Inspiration.</Text>
-          <Text style={styles.bannerCaption}>Learn. Improve. Get Featured.</Text>
-        </View>
-
-        <View style={styles.bannerRight}>
-          <View style={styles.rewardCard}>
-            <View style={styles.coinBadge}>
-              <Ionicons name="sparkles" size={12} color="#FBBF24" />
-              <Text style={styles.coinBadgeText}>GLD Coins</Text>
-            </View>
-            <Text style={styles.rewardAmount}>+50</Text>
-            <Text style={styles.rewardSubtext}>Test Complete</Text>
-            <View style={styles.claimButton}>
-              <Text style={styles.claimButtonText}>Earned</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* 3. TABS: Analysis | Solutions */}
+      {/* 2. TABS: Analysis | Solutions */}
       <View style={styles.tabBar}>
         <Pressable
           style={[styles.tabItem, activeTab === "analysis" && styles.tabItemActive]}
@@ -466,11 +464,18 @@ export default function TestResultScreen() {
 
       {/* 5. SOLUTIONS TAB */}
       {activeTab === "solutions" && (
-        <View style={styles.solutionsWrapper}>
+        <ScrollView
+          ref={solutionsScrollRef}
+          style={styles.solutionsScroll}
+          contentContainerStyle={styles.solutionsScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Solution Filter Pills */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.filterPillsScroll}
             contentContainerStyle={styles.filterPillsRow}
           >
             <Pressable
@@ -478,10 +483,7 @@ export default function TestResultScreen() {
                 styles.filterPill,
                 solutionFilter === "all" && styles.filterPillActive,
               ]}
-              onPress={() => {
-                setSolutionFilter("all");
-                setSelectedQuestionIndex(0);
-              }}
+              onPress={() => handleSelectFilter("all")}
             >
               <Text
                 style={[
@@ -498,10 +500,7 @@ export default function TestResultScreen() {
                 styles.filterPill,
                 solutionFilter === "correct" && styles.filterPillActive,
               ]}
-              onPress={() => {
-                setSolutionFilter("correct");
-                setSelectedQuestionIndex(0);
-              }}
+              onPress={() => handleSelectFilter("correct")}
             >
               <Text
                 style={[
@@ -518,10 +517,7 @@ export default function TestResultScreen() {
                 styles.filterPill,
                 solutionFilter === "incorrect" && styles.filterPillActive,
               ]}
-              onPress={() => {
-                setSolutionFilter("incorrect");
-                setSelectedQuestionIndex(0);
-              }}
+              onPress={() => handleSelectFilter("incorrect")}
             >
               <Text
                 style={[
@@ -538,10 +534,7 @@ export default function TestResultScreen() {
                 styles.filterPill,
                 solutionFilter === "unattempted" && styles.filterPillActive,
               ]}
-              onPress={() => {
-                setSolutionFilter("unattempted");
-                setSelectedQuestionIndex(0);
-              }}
+              onPress={() => handleSelectFilter("unattempted")}
             >
               <Text
                 style={[
@@ -558,6 +551,7 @@ export default function TestResultScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.qJumpScroll}
             contentContainerStyle={styles.qJumpContainer}
           >
             {filteredQuestions.map((q, idx) => {
@@ -576,7 +570,7 @@ export default function TestResultScreen() {
                     isSelected && styles.qJumpPillSelected,
                     { backgroundColor: dotBg },
                   ]}
-                  onPress={() => setSelectedQuestionIndex(idx)}
+                  onPress={() => handleSelectQuestion(idx)}
                 >
                   <Text style={styles.qJumpPillText}>{idx + 1}</Text>
                 </Pressable>
@@ -586,11 +580,7 @@ export default function TestResultScreen() {
 
           {/* Current Question View */}
           {currentQ ? (
-            <ScrollView
-              style={styles.solutionQuestionScroll}
-              contentContainerStyle={styles.solutionQuestionContent}
-              showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.solutionQuestionContent}>
               {/* Question Meta Header */}
               <View style={styles.solutionMetaRow}>
                 <View style={styles.metaLeftGroup}>
@@ -692,7 +682,7 @@ export default function TestResultScreen() {
                     selectedQuestionIndex === 0 && styles.solutionNavBtnDisabled,
                   ]}
                   disabled={selectedQuestionIndex === 0}
-                  onPress={() => setSelectedQuestionIndex((prev) => Math.max(0, prev - 1))}
+                  onPress={handlePrevQuestion}
                 >
                   <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
                   <Text style={styles.solutionNavBtnText}>Previous</Text>
@@ -705,23 +695,19 @@ export default function TestResultScreen() {
                       styles.solutionNavBtnDisabled,
                   ]}
                   disabled={selectedQuestionIndex >= filteredQuestions.length - 1}
-                  onPress={() =>
-                    setSelectedQuestionIndex((prev) =>
-                      Math.min(filteredQuestions.length - 1, prev + 1)
-                    )
-                  }
+                  onPress={handleNextQuestion}
                 >
                   <Text style={styles.solutionNavBtnText}>Next</Text>
                   <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
                 </Pressable>
               </View>
-            </ScrollView>
+            </View>
           ) : (
             <View style={styles.noQuestionsBox}>
               <Text style={styles.noQuestionsText}>No questions in this filter.</Text>
             </View>
           )}
-        </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -801,106 +787,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  /* 2. PROMO BANNER */
-  bannerContainer: {
-    flexDirection: "row",
-    backgroundColor: "#1A2234",
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#25324E",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  bannerLeft: {
-    flex: 1,
-  },
-  bannerBrandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  brandTitle: {
-    color: "#38BDF8",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  brandDivider: {
-    width: 1,
-    height: 10,
-    backgroundColor: "#475569",
-    marginHorizontal: 6,
-  },
-  brandSubtitle: {
-    color: "#94A3B8",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  bannerHeadline: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  bannerHeadlineAccent: {
-    color: "#38BDF8",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  bannerCaption: {
-    color: "#94A3B8",
-    fontSize: 11,
-    marginTop: 4,
-  },
-  bannerRight: {
-    marginLeft: 12,
-  },
-  rewardCard: {
-    backgroundColor: "#131B2A",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#2B3C5E",
-  },
-  coinBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  coinBadgeText: {
-    color: "#FBBF24",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  rewardAmount: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "800",
-    marginVertical: 2,
-  },
-  rewardSubtext: {
-    color: "#94A3B8",
-    fontSize: 9,
-    marginBottom: 4,
-  },
-  claimButton: {
-    backgroundColor: "#10B981",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  claimButtonText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-
-  /* 3. TABS */
+  /* 2. TABS */
   tabBar: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -1207,24 +1094,37 @@ const styles = StyleSheet.create({
   },
 
   /* 5. SOLUTIONS TAB */
-  solutionsWrapper: {
+  solutionsScroll: {
     flex: 1,
   },
+  solutionsScrollContent: {
+    paddingBottom: 60,
+    paddingTop: 8,
+  },
+  filterPillsScroll: {
+    flexGrow: 0,
+    marginBottom: 4,
+  },
   filterPillsRow: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 6,
     gap: 8,
   },
   filterPill: {
     backgroundColor: "#20232A",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#2D323F",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 36,
   },
   filterPillActive: {
-    backgroundColor: "#1D4ED8",
+    backgroundColor: "#2563EB",
     borderColor: "#3B82F6",
   },
   filterPillText: {
@@ -1234,21 +1134,28 @@ const styles = StyleSheet.create({
   },
   filterPillTextActive: {
     color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  qJumpScroll: {
+    flexGrow: 0,
+    marginBottom: 10,
   },
   qJumpContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingVertical: 6,
     gap: 8,
   },
   qJumpPill: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
   },
   qJumpPillSelected: {
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: "#FFFFFF",
   },
   qJumpPillText: {
@@ -1256,12 +1163,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-  solutionQuestionScroll: {
-    flex: 1,
-  },
   solutionQuestionContent: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
     paddingTop: 8,
   },
   solutionMetaRow: {
@@ -1426,6 +1329,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
+    marginTop: 10,
+    marginBottom: 30,
   },
   solutionNavBtn: {
     flex: 1,

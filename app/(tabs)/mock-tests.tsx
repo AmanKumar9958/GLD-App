@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -68,6 +68,36 @@ export default function MockTestsScreen() {
     setIsRefreshing(true);
     loadData();
   };
+
+  // Pre-calculate chronological attempt order per test_id
+  const attemptOrderMap = useMemo(() => {
+    const map: Record<string, { attemptNumber: number; totalAttempts: number; isReattempt: boolean }> = {};
+    const grouped: Record<string, DatabaseTestAttempt[]> = {};
+
+    attempts.forEach((a) => {
+      if (!grouped[a.test_id]) {
+        grouped[a.test_id] = [];
+      }
+      grouped[a.test_id].push(a);
+    });
+
+    Object.values(grouped).forEach((group) => {
+      // Sort oldest to newest
+      const sorted = [...group].sort(
+        (a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
+      );
+      const total = sorted.length;
+      sorted.forEach((att, index) => {
+        map[att.id] = {
+          attemptNumber: index + 1,
+          totalAttempts: total,
+          isReattempt: index > 0, // 2nd, 3rd, etc. attempt is a reattempt
+        };
+      });
+    });
+
+    return map;
+  }, [attempts]);
 
   return (
     <SafeAreaView
@@ -345,6 +375,10 @@ export default function MockTestsScreen() {
             attempts.map((attempt) => {
               const isAvailable = isAttemptTestAvailable(attempt);
               const testTitle = getAttemptTestTitle(attempt);
+              const attemptInfo = attemptOrderMap[attempt.id];
+              const isReattempt = attemptInfo?.isReattempt ?? false;
+              const attemptNumber = attemptInfo?.attemptNumber ?? 1;
+              const totalForTest = attemptInfo?.totalAttempts ?? 1;
 
               return (
                 <View
@@ -360,6 +394,48 @@ export default function MockTestsScreen() {
                         <Ionicons name="checkmark-done" size={14} color="#10B981" />
                         <Text style={styles.attemptStatusText}>COMPLETED</Text>
                       </View>
+                      {isReattempt && (
+                        <View
+                          style={[
+                            styles.reattemptBadge,
+                            {
+                              backgroundColor: isDark ? "#1E1B4B" : "#EEF2FF",
+                              borderColor: isDark ? "#4338CA" : "#C7D2FE",
+                            },
+                          ]}
+                        >
+                          <Ionicons name="repeat" size={12} color={isDark ? "#A5B4FC" : "#4F46E5"} />
+                          <Text
+                            style={[
+                              styles.reattemptBadgeText,
+                              { color: isDark ? "#A5B4FC" : "#4F46E5" },
+                            ]}
+                          >
+                            {attemptNumber > 2 ? `REATTEMPT #${attemptNumber - 1}` : "REATTEMPTED"}
+                          </Text>
+                        </View>
+                      )}
+                      {totalForTest > 1 && !isReattempt && (
+                        <View
+                          style={[
+                            styles.initialAttemptBadge,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                              borderColor: isDark ? "#334155" : "#E2E8F0",
+                            },
+                          ]}
+                        >
+                          <Ionicons name="flag-outline" size={11} color={colors.textSecondary} />
+                          <Text
+                            style={[
+                              styles.initialAttemptBadgeText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            1ST ATTEMPT
+                          </Text>
+                        </View>
+                      )}
                       {!isAvailable && (
                         <View style={styles.expiredBadge}>
                           <Text style={styles.expiredBadgeText}>EXPIRED / DELETED</Text>
@@ -738,6 +814,34 @@ const styles = StyleSheet.create({
     color: "#15803D",
     fontSize: 10,
     fontWeight: "800",
+  },
+  reattemptBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  reattemptBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  initialAttemptBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  initialAttemptBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   attemptDate: {
     fontSize: 12,
