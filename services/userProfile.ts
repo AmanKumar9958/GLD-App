@@ -64,7 +64,6 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
   if (profile.email) updateData.email = profile.email;
   if (profile.photoURL) updateData.photo_url = profile.photoURL;
   if (profile.phone !== undefined) updateData.phone = profile.phone;
-  if (profile.role) updateData.role = profile.role;
 
   const { error } = await supabase
     .from("users")
