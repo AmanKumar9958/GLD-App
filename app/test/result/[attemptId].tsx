@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   Share,
   Dimensions,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -36,6 +38,7 @@ export default function TestResultScreen() {
   // Solutions Tab States
   const [solutionFilter, setSolutionFilter] = useState<FilterType>("all");
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+  const [selectedImageForZoom, setSelectedImageForZoom] = useState<string | null>(null);
   const solutionsScrollRef = useRef<ScrollView>(null);
 
   const handleSelectQuestion = (index: number) => {
@@ -620,6 +623,27 @@ export default function TestResultScreen() {
               {/* Question Text */}
               <Text style={styles.solutionQuestionText}>{currentQ.question_text}</Text>
 
+              {/* Optional Diagram / Reference Image for Math, Aptitude & Reasoning */}
+              {currentQ.question_image_url ? (
+                <View style={styles.questionImageCard}>
+                  <Pressable
+                    style={styles.questionImagePressable}
+                    onPress={() => setSelectedImageForZoom(currentQ.question_image_url)}
+                  >
+                    <ExpoImage
+                      source={{ uri: currentQ.question_image_url }}
+                      style={styles.questionImage}
+                      contentFit="contain"
+                      transition={200}
+                    />
+                    <View style={styles.zoomPill}>
+                      <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
+                      <Text style={styles.zoomPillText}>Tap to enlarge</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              ) : null}
+
               {/* Options */}
               <View style={styles.optionsList}>
                 {currentQ.options.map((optText, optIdx) => {
@@ -709,6 +733,40 @@ export default function TestResultScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* ─── Fullscreen Diagram / Image Zoom Modal ──────────────────────────── */}
+      <Modal
+        visible={!!selectedImageForZoom}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setSelectedImageForZoom(null)}
+      >
+        <SafeAreaView style={styles.fullscreenModalOverlay} edges={["top", "bottom"]}>
+          <View style={styles.fullscreenModalHeader}>
+            <View style={styles.fullscreenModalTitleWrap}>
+              <Ionicons name="image-outline" size={18} color="#9CA3AF" />
+              <Text style={styles.fullscreenModalTitle}>Question Diagram / Figure</Text>
+            </View>
+            <Pressable
+              style={styles.fullscreenCloseBtn}
+              onPress={() => setSelectedImageForZoom(null)}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </Pressable>
+          </View>
+          <View style={styles.fullscreenModalBody}>
+            {selectedImageForZoom && (
+              <ExpoImage
+                source={{ uri: selectedImageForZoom }}
+                style={styles.fullscreenImage}
+                contentFit="contain"
+                transition={200}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1236,8 +1294,86 @@ const styles = StyleSheet.create({
     color: "#F3F4F6",
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 18,
+    marginBottom: 16,
     fontWeight: "500",
+  },
+  questionImageCard: {
+    backgroundColor: "#20232A",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#323742",
+    padding: 8,
+    marginBottom: 18,
+    overflow: "hidden",
+  },
+  questionImagePressable: {
+    position: "relative",
+    width: "100%",
+    height: 220,
+    borderRadius: 8,
+    backgroundColor: "#18191D",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  questionImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8,
+  },
+  zoomPill: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 0.5,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  zoomPillText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  fullscreenModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+  },
+  fullscreenModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2A2D34",
+  },
+  fullscreenModalTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  fullscreenModalTitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  fullscreenCloseBtn: {
+    padding: 4,
+  },
+  fullscreenModalBody: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 12,
+  },
+  fullscreenImage: {
+    width: "100%",
+    height: "100%",
   },
   optionsList: {
     gap: 10,
